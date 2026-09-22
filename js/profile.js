@@ -145,7 +145,7 @@ function renderProfileTab() {
   `;
 
   if (!active) {
-    return `<h2 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-4">Profile</h2>${switcher}${googleBox}
+    return `<h2 class="page-title mb-4">Profile</h2>${switcher}${googleBox}
       <div class="empty-state"><p class="text-lg font-medium text-slate-600 dark:text-slate-300">No profile yet</p>
       <p class="text-sm text-slate-400 dark:text-slate-500 mt-1">Create one to get personalized calorie targets.</p></div>`;
   }
@@ -157,10 +157,10 @@ function renderProfileTab() {
   const weightDisplay = kgToDisplay(active.weightKg, active.weightUnit);
 
   return `
-    <h2 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-4">Profile</h2>
+    <h2 class="page-title mb-4">Profile</h2>
     ${switcher}
     ${googleBox}
-    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 mb-5">
+    <div class="panel p-5 mb-5">
       <div class="grid sm:grid-cols-2 gap-3">
         <label class="field-label">Name
           <input type="text" id="profile-name" value="${escapeHtml(active.name)}" class="field-input">
@@ -211,7 +211,7 @@ function renderProfileTab() {
       <button data-action="save-profile" class="btn-primary mt-4">Save Profile</button>
     </div>
 
-    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+    <div class="panel p-5">
       <h3 class="font-semibold text-slate-700 dark:text-slate-300 mb-3">Estimated Energy Needs</h3>
       <div class="grid grid-cols-3 gap-3 text-center">
         <div class="macro-tile bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300"><div class="text-xl font-bold">${formatNum(bmr, 0)}</div><div class="text-xs uppercase tracking-wide">BMR</div></div>

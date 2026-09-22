@@ -2,7 +2,7 @@
 
 function renderRecommendedTab() {
   const cards = RECOMMENDED_MEALS.map((m) => `
-    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 card-anim">
+    <div class="panel tile-hover p-4 card-anim">
       <div class="flex justify-between items-start gap-2">
         <div>
           <h3 class="font-semibold text-slate-800 dark:text-slate-100">${escapeHtml(m.name)}</h3>
@@ -25,7 +25,7 @@ function renderRecommendedTab() {
   `).join("");
 
   return `
-    <h2 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-1">Recommended Meals</h2>
+    <h2 class="page-title mb-1">Recommended Meals</h2>
     <p class="text-sm text-slate-500 dark:text-slate-400 mb-5">
       Starter ideas from well-known meal-prep sites, plus a ready-made YouTube search for each —
       macros here are estimates, not scraped data, so double check against the source before you rely on them.

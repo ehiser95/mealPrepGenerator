@@ -150,7 +150,7 @@ function renderRecipesTab() {
   return `
     <div class="flex items-center justify-between mb-5">
       <div>
-        <h2 class="text-2xl font-bold text-slate-800 dark:text-slate-100">My Recipes</h2>
+        <h2 class="page-title">My Recipes</h2>
         <p class="text-sm text-slate-500 dark:text-slate-400">${recipes.length} saved recipe${recipes.length === 1 ? "" : "s"}</p>
       </div>
       <button data-action="new-recipe" class="btn-primary">+ New Recipe</button>
@@ -169,7 +169,7 @@ function renderRecipeCard(r) {
   const scale = AppState.cardScales[r.id] || 1;
   const expanded = AppState.expandedIds.has(r.id);
   return `
-  <div class="card-anim bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4" data-id="${r.id}">
+  <div class="card-anim panel tile-hover p-4" data-id="${r.id}">
     <div class="flex justify-between items-start gap-2">
       <div class="min-w-0">
         <h3 class="font-semibold text-lg text-slate-800 dark:text-slate-100 truncate">${escapeHtml(r.name)}</h3>
@@ -388,11 +388,11 @@ function renderRecipeEditor() {
   const isNew = AppState.recipeEditorId === "new";
   return `
   <div class="flex items-center justify-between mb-5">
-    <h2 class="text-2xl font-bold text-slate-800 dark:text-slate-100">${isNew ? "New Recipe" : "Edit Recipe"}</h2>
+    <h2 class="page-title">${isNew ? "New Recipe" : "Edit Recipe"}</h2>
     <button data-action="cancel-recipe-edit" class="btn-secondary text-sm">← Back to Recipes</button>
   </div>
 
-  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 mb-5">
+  <div class="panel p-5 mb-5">
     <h3 class="font-semibold text-slate-700 dark:text-slate-300 mb-3">Import from a link or pasted text</h3>
     <p class="text-xs text-slate-400 dark:text-slate-500 mb-2">
       We'll try to fetch the page directly, but most recipe/YouTube sites block cross-origin
@@ -411,7 +411,7 @@ function renderRecipeEditor() {
     <button data-action="parse-pasted-text" class="btn-secondary text-sm mt-2">Parse Ingredients from Text</button>
   </div>
 
-  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 mb-5">
+  <div class="panel p-5 mb-5">
     <div class="grid sm:grid-cols-4 gap-3 mb-2">
       <input type="text" id="recipe-name" placeholder="Recipe name" value="${escapeHtml(d.name)}"
         class="sm:col-span-2 border rounded-lg px-3 py-2 text-sm font-medium">

@@ -7,6 +7,12 @@
 
 const PLANNER_PORTION_OPTIONS = Array.from({ length: 20 }, (_, i) => i + 1);
 const MAX_PLAN_CANDIDATES = 6;
+// A single recipe's macro ratio is fixed by its ingredients — scaling it to
+// hit a calorie target scales protein/carbs/fat together, so an arbitrary
+// macro target can only ever be matched approximately by picking the recipe
+// whose ratio happens to be closest. This is how loose "close enough" is
+// before a candidate is filtered out for missing the target outright.
+const MACRO_TARGET_TOLERANCE = 0.3;
 
 function buildCandidatePool(mealType) {
   let pool = AppState.recipes
@@ -57,6 +63,13 @@ function isCarnivoreCompliant(recipe) {
     recipe.ingredients.length > 0 &&
     recipe.ingredients.every((ing) => ANIMAL_FOOD_KEYS.has(String(ing.name || "").trim().toLowerCase()))
   );
+}
+
+function passesMacroTargets(perPortion, targets, tolerance) {
+  if (targets.protein > 0 && Math.abs(perPortion.protein - targets.protein) / targets.protein > tolerance) return false;
+  if (targets.carbs > 0 && Math.abs(perPortion.carbs - targets.carbs) / targets.carbs > tolerance) return false;
+  if (targets.fat > 0 && Math.abs(perPortion.fat - targets.fat) / targets.fat > tolerance) return false;
+  return true;
 }
 
 function scoreMacroFit(perPortion, targets) {
@@ -148,8 +161,13 @@ function shuffleArray(arr) {
 
 function generateMealPrepCandidates(opts) {
   const { mealType, portions, calPerPortion, maxPrepMin, maxCookMin, diet, targetProteinG, targetCarbsG, targetFatG } = opts;
+  const targets = { protein: targetProteinG || 0, carbs: targetCarbsG || 0, fat: targetFatG || 0 };
+  const hasTargets = targets.protein > 0 || targets.carbs > 0 || targets.fat > 0;
+
   const { pool, usedOwn } = buildCandidatePool(mealType);
-  if (pool.length === 0) return { candidates: [], usedOwn, dietFiltered: false, usedFallbackTime: false };
+  if (pool.length === 0) {
+    return { candidates: [], usedOwn, dietFiltered: false, usedFallbackTime: false, macroFiltered: false, targets, hasTargets };
+  }
 
   let dietPool = pool.filter((c) => passesDiet(diet, c));
   const dietFiltered = dietPool.length === 0 && diet !== "any";
@@ -165,17 +183,33 @@ function generateMealPrepCandidates(opts) {
   const usedFallbackTime = timePool.length === 0 && (maxPrepMin > 0 || maxCookMin > 0);
   if (usedFallbackTime) timePool = dietPool;
 
-  const targets = { protein: targetProteinG || 0, carbs: targetCarbsG || 0, fat: targetFatG || 0 };
+  // Scale every remaining candidate to the calorie target BEFORE checking
+  // macro targets, since per-portion protein/carbs/fat only exist post-scale.
   const scaled = shuffleArray(timePool)
     .map((c) => buildScaledCandidate(c, portions, calPerPortion))
     .filter(Boolean);
-  scaled.sort((a, b) => scoreMacroFit(a.perPortion, targets) - scoreMacroFit(b.perPortion, targets));
+
+  let macroFiltered = false;
+  let finalList = scaled;
+  if (hasTargets) {
+    const matching = scaled.filter((c) => passesMacroTargets(c.perPortion, targets, MACRO_TARGET_TOLERANCE));
+    if (matching.length > 0) {
+      finalList = matching;
+    } else {
+      macroFiltered = true; // nothing within tolerance -- fall back to everything, sorted by closeness
+    }
+  }
+
+  finalList = [...finalList].sort((a, b) => scoreMacroFit(a.perPortion, targets) - scoreMacroFit(b.perPortion, targets));
 
   return {
-    candidates: scaled.slice(0, MAX_PLAN_CANDIDATES),
+    candidates: finalList.slice(0, MAX_PLAN_CANDIDATES),
     usedOwn,
     dietFiltered,
     usedFallbackTime,
+    macroFiltered,
+    targets,
+    hasTargets,
   };
 }
 
@@ -268,14 +302,14 @@ function renderPlannerTab() {
   const candidates = AppState.planCandidates || [];
 
   return `
-    <h2 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-1">Meal Prep Planner</h2>
+    <h2 class="page-title mb-1">Meal Prep Planner</h2>
     <p class="text-sm text-slate-500 dark:text-slate-400 mb-5">
       Plan <strong>one</strong> batch-cooked lunch or dinner, portioned into meal-prep containers.
       Set the calories you want <em>per container</em> and how many containers you need — the whole
       batch scales so total calories = cal/portion × portions.
     </p>
 
-    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 mb-5">
+    <div class="panel p-5 mb-5">
       <div class="grid sm:grid-cols-2 gap-4">
         <label class="field-label">Meal type
           <select id="planner-meal-type" data-planner-field="mealType" class="field-input">
@@ -314,7 +348,7 @@ function renderPlannerTab() {
           <input type="number" min="0" step="1" placeholder="Carbs" value="${AppState.plannerTargetCarbs || ""}" data-planner-field="targetCarbs" class="field-input">
           <input type="number" min="0" step="1" placeholder="Fat" value="${AppState.plannerTargetFat || ""}" data-planner-field="targetFat" class="field-input">
         </div>
-        <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">Used to rank candidates by closest macro match — the calorie target above is still what's scaled to exactly.</p>
+        <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">Candidates within ~${Math.round(MACRO_TARGET_TOLERANCE * 100)}% of these are shown first; the calorie target above is still what gets scaled to exactly, so macros can only get as close as a recipe's own ratio allows.</p>
       </div>
 
       <div class="grid sm:grid-cols-2 gap-4 mt-4">
@@ -340,14 +374,36 @@ function renderPlannerTab() {
   `;
 }
 
+function macroTargetLine(actual, target, label) {
+  if (!target) return "";
+  const diffPct = Math.abs(actual - target) / target;
+  const cls =
+    diffPct <= 0.1
+      ? "text-emerald-600 dark:text-emerald-400"
+      : diffPct <= MACRO_TARGET_TOLERANCE
+      ? "text-amber-600 dark:text-amber-400"
+      : "text-rose-600 dark:text-rose-400";
+  return `<span class="${cls} font-medium">${label} ${formatNum(actual, 0)}g<span class="text-slate-400 dark:text-slate-500 font-normal">/${formatNum(target, 0)}g</span></span>`;
+}
+
 function renderCandidateTiles() {
   const candidates = AppState.planCandidates || [];
   const meta = AppState.planMeta || {};
+  const targets = meta.targets || {};
   const tiles = candidates
-    .map(
-      (c) => `
+    .map((c) => {
+      const targetLines = meta.hasTargets
+        ? [
+            macroTargetLine(c.perPortion.protein, targets.protein, "P"),
+            macroTargetLine(c.perPortion.carbs, targets.carbs, "C"),
+            macroTargetLine(c.perPortion.fat, targets.fat, "F"),
+          ]
+            .filter(Boolean)
+            .join(" · ")
+        : "";
+      return `
     <button data-action="open-plan-modal" data-id="${c.id}"
-      class="card-anim text-left bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-md transition cursor-pointer">
+      class="card-anim text-left panel tile-hover p-4 cursor-pointer">
       <div class="flex justify-between items-start gap-2 mb-2">
         <h3 class="font-semibold text-slate-800 dark:text-slate-100">${escapeHtml(c.recipeName)}</h3>
         ${c.type === "recommended" ? `<span class="badge bg-purple-100 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 shrink-0">recommended</span>` : `<span class="badge shrink-0">mine</span>`}
@@ -358,9 +414,10 @@ function renderCandidateTiles() {
         <div class="macro-tile bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300"><div class="font-bold text-sm">${formatNum(c.perPortion.carbs, 0)}g</div><div class="text-[9px] uppercase tracking-wide">carbs</div></div>
         <div class="macro-tile bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300"><div class="font-bold text-sm">${formatNum(c.perPortion.fat, 0)}g</div><div class="text-[9px] uppercase tracking-wide">fat</div></div>
       </div>
+      ${targetLines ? `<div class="text-xs mb-1.5">${targetLines}</div>` : ""}
       <div class="text-xs text-slate-500 dark:text-slate-400">⏱ ${formatNum(c.prepTimeMin + c.cookTimeMin, 0)}m total · tap to view recipe</div>
-    </button>`
-    )
+    </button>`;
+    })
     .join("");
 
   return `
@@ -370,6 +427,7 @@ function renderCandidateTiles() {
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-2">${tiles}</div>
     ${meta.dietFiltered ? `<p class="text-xs text-slate-400 dark:text-slate-500 mt-2">No recipe matched that diet filter, so this ignores it — add recipes that fit, or pick "No specific diet".</p>` : ""}
     ${meta.usedFallbackTime ? `<p class="text-xs text-slate-400 dark:text-slate-500 mt-1">No recipe matched your time filters, so this ignores them.</p>` : ""}
+    ${meta.macroFiltered ? `<p class="text-xs text-slate-400 dark:text-slate-500 mt-1">Nothing hit your macro targets within ~${Math.round(MACRO_TARGET_TOLERANCE * 100)}%, so these are the closest available matches — a single scaled recipe can only get so close, since its macro ratio is fixed by its ingredients. Add a recipe with a closer ratio for a tighter match.</p>` : ""}
     ${!meta.usedOwn ? `<p class="text-xs text-slate-400 dark:text-slate-500 mt-1">No saved recipes for this meal type yet, so these are starter ideas from the Recommended tab.</p>` : ""}
   `;
 }
@@ -419,7 +477,12 @@ function renderPlanModal() {
           <div class="macro-tile bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300"><div class="font-bold">${formatNum(plan.perPortion.carbs, 0)}g</div><div class="text-[10px] uppercase tracking-wide">carbs</div></div>
           <div class="macro-tile bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300"><div class="font-bold">${formatNum(plan.perPortion.fat, 0)}g</div><div class="text-[10px] uppercase tracking-wide">fat</div></div>
         </div>
-        <p class="text-xs text-center mb-4">${formatNum(plan.perPortion.cal, 0)} cal vs ${formatNum(plan.targetCalPerPortion, 0)} cal target — ${deltaBadge(plan.perPortion.cal, plan.targetCalPerPortion)}</p>
+        <p class="text-xs text-center mb-1">${formatNum(plan.perPortion.cal, 0)} cal vs ${formatNum(plan.targetCalPerPortion, 0)} cal target — ${deltaBadge(plan.perPortion.cal, plan.targetCalPerPortion)}</p>
+        ${(AppState.planMeta && AppState.planMeta.hasTargets) ? `<p class="text-xs text-center mb-4">${[
+          macroTargetLine(plan.perPortion.protein, AppState.planMeta.targets.protein, "Protein"),
+          macroTargetLine(plan.perPortion.carbs, AppState.planMeta.targets.carbs, "Carbs"),
+          macroTargetLine(plan.perPortion.fat, AppState.planMeta.targets.fat, "Fat"),
+        ].filter(Boolean).join(" · ")}</p>` : `<div class="mb-4"></div>`}
 
         <h4 class="font-semibold text-slate-700 dark:text-slate-300 mb-1">Ingredients (whole batch, ${plan.portions} portions)</h4>
         <ol class="list-decimal list-inside text-sm text-slate-600 dark:text-slate-300 space-y-0.5 mb-4">${ingredientItems}</ol>
