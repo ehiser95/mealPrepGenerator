@@ -225,11 +225,13 @@ function startEditRecipe(id) {
 }
 
 function addIngredientRow() {
+  readEditorFormIntoDraft();
   AppState.editorDraft.ingredients.push(blankIngredient());
   renderApp();
 }
 
 function removeIngredientRow(id) {
+  readEditorFormIntoDraft();
   AppState.editorDraft.ingredients = AppState.editorDraft.ingredients.filter((i) => i.id !== id);
   if (AppState.editorDraft.ingredients.length === 0) AppState.editorDraft.ingredients.push(blankIngredient());
   renderApp();
