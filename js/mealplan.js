@@ -420,14 +420,32 @@ function renderCandidateTiles() {
     })
     .join("");
 
+  const warnings = [];
+  if (meta.dietFiltered) {
+    warnings.push(
+      `No recipe matched the <strong>${escapeHtml((DIETS[AppState.plannerDiet] || {}).label || "selected")}</strong> diet filter, so it's ignored below — add recipes that fit, or pick "No specific diet".`
+    );
+  }
+  if (meta.usedFallbackTime) {
+    warnings.push(`No recipe matched your time filters, so they're ignored below.`);
+  }
+  if (meta.macroFiltered) {
+    warnings.push(
+      `None of your available recipes landed within ~${Math.round(MACRO_TARGET_TOLERANCE * 100)}% of your macro target(s), so the closest matches are shown below instead — a single recipe's macro ratio is fixed by its ingredients, so it can only get so close to an arbitrary target. Add a recipe with a closer ratio, or loosen/clear the target.`
+    );
+  }
+  const warningBanner = warnings.length
+    ? `<div class="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-3 mb-4 text-sm text-amber-800 dark:text-amber-300 space-y-1.5">
+        ${warnings.map((w) => `<p>⚠️ ${w}</p>`).join("")}
+      </div>`
+    : "";
+
   return `
     <div class="flex items-center justify-between mb-3">
       <h3 class="font-semibold text-slate-700 dark:text-slate-300">Pick a recipe (${candidates.length} option${candidates.length === 1 ? "" : "s"})</h3>
     </div>
+    ${warningBanner}
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-2">${tiles}</div>
-    ${meta.dietFiltered ? `<p class="text-xs text-slate-400 dark:text-slate-500 mt-2">No recipe matched that diet filter, so this ignores it — add recipes that fit, or pick "No specific diet".</p>` : ""}
-    ${meta.usedFallbackTime ? `<p class="text-xs text-slate-400 dark:text-slate-500 mt-1">No recipe matched your time filters, so this ignores them.</p>` : ""}
-    ${meta.macroFiltered ? `<p class="text-xs text-slate-400 dark:text-slate-500 mt-1">Nothing hit your macro targets within ~${Math.round(MACRO_TARGET_TOLERANCE * 100)}%, so these are the closest available matches — a single scaled recipe can only get so close, since its macro ratio is fixed by its ingredients. Add a recipe with a closer ratio for a tighter match.</p>` : ""}
     ${!meta.usedOwn ? `<p class="text-xs text-slate-400 dark:text-slate-500 mt-1">No saved recipes for this meal type yet, so these are starter ideas from the Recommended tab.</p>` : ""}
   `;
 }
