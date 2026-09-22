@@ -49,7 +49,7 @@ function toast(message, type) {
     success: "bg-emerald-600",
     error: "bg-rose-600",
     warning: "bg-amber-500",
-    info: "bg-slate-800",
+    info: "bg-slate-800 dark:bg-slate-700",
   };
   const el = document.createElement("div");
   el.className =

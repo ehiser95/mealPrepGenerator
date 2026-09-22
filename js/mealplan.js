@@ -2,43 +2,85 @@
 // however many meal-prep containers you want. You set the calories you want
 // per container and how many containers you need — the whole batch (every
 // ingredient amount) is scaled so total batch calories = cal/portion x portions.
+// Generates several candidate recipes at once (tiles); clicking one opens a
+// full-detail view (ingredients, steps, source/YouTube, tips).
 
 const PLANNER_PORTION_OPTIONS = Array.from({ length: 20 }, (_, i) => i + 1);
+const MAX_PLAN_CANDIDATES = 6;
 
-function pickPlanCandidate(mealType, maxPrepMin, maxCookMin) {
+function buildCandidatePool(mealType) {
   let pool = AppState.recipes
     .filter((r) => r.category === mealType)
     .map((r) => ({ ref: r, type: "mine", totals: computeRecipeTotals(r) }));
-
-  if (pool.length === 0) {
+  const usedOwn = pool.length > 0;
+  if (!usedOwn) {
     pool = RECOMMENDED_MEALS.filter((m) => m.mealType === mealType).map((m) => ({
       ref: m,
       type: "recommended",
       totals: { cal: m.perServing.cal, protein: m.perServing.protein, carbs: m.perServing.carbs, fat: m.perServing.fat },
     }));
   }
-  if (pool.length === 0) return { pool: [], choice: null };
-
-  const timeFiltered = pool.filter((p) => {
-    const prep = Number(p.ref.prepTimeMin) || 0;
-    const cook = Number(p.ref.cookTimeMin) || 0;
-    if (maxPrepMin > 0 && prep > maxPrepMin) return false;
-    if (maxCookMin > 0 && cook > maxCookMin) return false;
-    return true;
-  });
-  const finalPool = timeFiltered.length > 0 ? timeFiltered : pool;
-  const choice = finalPool[Math.floor(Math.random() * finalPool.length)];
-  return { pool: finalPool, usedFallbackPool: timeFiltered.length === 0 && maxPrepMin + maxCookMin > 0, choice };
+  return { pool, usedOwn };
 }
 
-function generateMealPrepPlan({ mealType, portions, calPerPortion, maxPrepMin, maxCookMin }) {
-  const { choice, usedFallbackPool } = pickPlanCandidate(mealType, maxPrepMin, maxCookMin);
-  if (!choice) return null;
+function passesDiet(dietKey, candidate) {
+  const d = DIETS[dietKey];
+  if (!d || !d.kind) return true; // "any" / unknown
+  const totals = candidate.totals;
+  if (d.kind === "macroRatio") {
+    const carbCal = totals.carbs * 4;
+    const fatCal = totals.fat * 9;
+    const proteinCal = totals.protein * 4;
+    const totalCal2 = carbCal + fatCal + proteinCal;
+    if (totalCal2 <= 0) return false;
+    const carbPct = (carbCal / totalCal2) * 100;
+    const fatPct = (fatCal / totalCal2) * 100;
+    if (d.maxCarbPct != null && carbPct > d.maxCarbPct) return false;
+    if (d.minFatPct != null && fatPct < d.minFatPct) return false;
+    return true;
+  }
+  if (d.kind === "density") {
+    if (candidate.type !== "mine") return false;
+    const totalGrams = candidate.ref.ingredients.reduce((sum, ing) => sum + toGrams(ing.amount, ing.unit), 0);
+    if (totalGrams <= 0) return false;
+    return totals.cal / totalGrams <= d.maxKcalPerGram;
+  }
+  if (d.kind === "ingredient") {
+    if (candidate.type !== "mine") return false;
+    return isCarnivoreCompliant(candidate.ref);
+  }
+  return true;
+}
 
+function isCarnivoreCompliant(recipe) {
+  return (
+    recipe.ingredients.length > 0 &&
+    recipe.ingredients.every((ing) => ANIMAL_FOOD_KEYS.has(String(ing.name || "").trim().toLowerCase()))
+  );
+}
+
+function scoreMacroFit(perPortion, targets) {
+  let score = 0;
+  let count = 0;
+  if (targets.protein > 0) {
+    score += Math.abs(perPortion.protein - targets.protein) / targets.protein;
+    count++;
+  }
+  if (targets.carbs > 0) {
+    score += Math.abs(perPortion.carbs - targets.carbs) / targets.carbs;
+    count++;
+  }
+  if (targets.fat > 0) {
+    score += Math.abs(perPortion.fat - targets.fat) / targets.fat;
+    count++;
+  }
+  return count > 0 ? score / count : 0;
+}
+
+function buildScaledCandidate(choice, portions, calPerPortion) {
   const baseTotalCal = choice.totals.cal;
-  const targetTotalCal = calPerPortion * portions;
-  const scale = baseTotalCal > 0 ? targetTotalCal / baseTotalCal : 1;
-
+  if (baseTotalCal <= 0) return null;
+  const scale = (calPerPortion * portions) / baseTotalCal;
   const scaledTotals = {
     cal: choice.totals.cal * scale,
     protein: choice.totals.protein * scale,
@@ -51,25 +93,16 @@ function generateMealPrepPlan({ mealType, portions, calPerPortion, maxPrepMin, m
     carbs: scaledTotals.carbs / portions,
     fat: scaledTotals.fat / portions,
   };
-
   const ingredients =
     choice.type === "mine"
       ? choice.ref.ingredients.map((ing) => ({ ...ing, amount: (Number(ing.amount) || 0) * scale }))
-      : [
-          {
-            id: "rec",
-            name: "estimated recipe — see source link for the exact ingredient list",
-            amount: 0,
-            unit: "g",
-          },
-        ];
-
+      : [{ id: "rec", name: "estimated recipe — see source link for the exact ingredient list", amount: 0, unit: "g" }];
   const steps = (choice.ref.steps || []).map((s) => (typeof s === "string" ? s : s.text)).filter(Boolean);
 
   return {
+    id: choice.ref.id + "-" + Math.random().toString(36).slice(2, 8),
     recipeName: choice.ref.name,
     type: choice.type,
-    mealType,
     portions,
     scale,
     sourceUrl: choice.ref.sourceUrl || null,
@@ -83,33 +116,114 @@ function generateMealPrepPlan({ mealType, portions, calPerPortion, maxPrepMin, m
     perPortion,
     totals: scaledTotals,
     targetCalPerPortion: calPerPortion,
-    usedFallbackPool,
+    tips: getRecipeTips(ingredients),
+  };
+}
+
+function getRecipeTips(ingredients) {
+  const freezerMatches = [
+    ...new Set(
+      (ingredients || [])
+        .map((ing) => String(ing.name || "").trim().toLowerCase())
+        .filter((name) => FREEZABLE_OR_PRECUT_INGREDIENTS.has(name))
+    ),
+  ];
+  const tips = [...GENERIC_MEAL_PREP_TIPS];
+  if (freezerMatches.length > 0) {
+    tips.unshift(
+      `This recipe's ${freezerMatches.join(", ")} ${freezerMatches.length > 1 ? "are" : "is"} commonly sold pre-chopped or frozen — grabbing those instead of fresh can cut prep time with little difference in the finished dish.`
+    );
+  }
+  return tips;
+}
+
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function generateMealPrepCandidates(opts) {
+  const { mealType, portions, calPerPortion, maxPrepMin, maxCookMin, diet, targetProteinG, targetCarbsG, targetFatG } = opts;
+  const { pool, usedOwn } = buildCandidatePool(mealType);
+  if (pool.length === 0) return { candidates: [], usedOwn, dietFiltered: false, usedFallbackTime: false };
+
+  let dietPool = pool.filter((c) => passesDiet(diet, c));
+  const dietFiltered = dietPool.length === 0 && diet !== "any";
+  if (dietFiltered) dietPool = pool;
+
+  let timePool = dietPool.filter((c) => {
+    const prep = Number(c.ref.prepTimeMin) || 0;
+    const cook = Number(c.ref.cookTimeMin) || 0;
+    if (maxPrepMin > 0 && prep > maxPrepMin) return false;
+    if (maxCookMin > 0 && cook > maxCookMin) return false;
+    return true;
+  });
+  const usedFallbackTime = timePool.length === 0 && (maxPrepMin > 0 || maxCookMin > 0);
+  if (usedFallbackTime) timePool = dietPool;
+
+  const targets = { protein: targetProteinG || 0, carbs: targetCarbsG || 0, fat: targetFatG || 0 };
+  const scaled = shuffleArray(timePool)
+    .map((c) => buildScaledCandidate(c, portions, calPerPortion))
+    .filter(Boolean);
+  scaled.sort((a, b) => scoreMacroFit(a.perPortion, targets) - scoreMacroFit(b.perPortion, targets));
+
+  return {
+    candidates: scaled.slice(0, MAX_PLAN_CANDIDATES),
+    usedOwn,
+    dietFiltered,
+    usedFallbackTime,
   };
 }
 
 function onGeneratePlan() {
   const mealType = AppState.plannerMealType || "Lunch";
-  const plan = generateMealPrepPlan({
+  const result = generateMealPrepCandidates({
     mealType,
     portions: AppState.plannerPortions || 5,
     calPerPortion: AppState.plannerCalPerPortion || 500,
     maxPrepMin: Number(AppState.plannerMaxPrepMin) || 0,
     maxCookMin: Number(AppState.plannerMaxCookMin) || 0,
+    diet: AppState.plannerDiet || "any",
+    targetProteinG: Number(AppState.plannerTargetProtein) || 0,
+    targetCarbsG: Number(AppState.plannerTargetCarbs) || 0,
+    targetFatG: Number(AppState.plannerTargetFat) || 0,
   });
-  if (!plan) {
+  if (result.candidates.length === 0) {
     toast(`No ${mealType} recipes available yet — add one, or check the Recommended tab.`, "warning");
+    AppState.planCandidates = [];
+    AppState.planMeta = null;
+    renderApp();
     return;
   }
-  AppState.planLast = plan;
+  AppState.planCandidates = result.candidates;
+  AppState.planMeta = result;
+  renderApp();
+}
+
+function openPlanModal(id) {
+  AppState.openPlanCandidateId = id;
+  renderApp();
+}
+
+function closePlanModal() {
+  AppState.openPlanCandidateId = null;
   renderApp();
 }
 
 function handlePlannerFieldInput(el) {
   const field = el.dataset.plannerField;
-  const numericFields = ["calPerPortion", "maxPrepMin", "maxCookMin"];
+  const numericFields = ["calPerPortion", "maxPrepMin", "maxCookMin", "targetProtein", "targetCarbs", "targetFat"];
   const value = numericFields.includes(field) ? parseFloat(el.value) || 0 : el.value;
   const stateKey = "planner" + field.charAt(0).toUpperCase() + field.slice(1);
   AppState[stateKey] = value;
+  if (field === "diet") {
+    const descEl = document.getElementById("planner-diet-description");
+    if (descEl) descEl.textContent = DIETS[value] ? DIETS[value].description : "";
+  }
   updatePlannerLiveText();
 }
 
@@ -135,11 +249,11 @@ function updatePlannerLiveText() {
   }
 }
 
-function deltaBadge(perPortionCal, target) {
-  const diffPct = target > 0 ? Math.abs(perPortionCal - target) / target : 0;
-  if (diffPct <= 0.02) return `<span class="text-emerald-600 font-medium">exact match</span>`;
-  if (diffPct <= 0.1) return `<span class="text-amber-600 font-medium">close</span>`;
-  return `<span class="text-rose-600 font-medium">off target</span>`;
+function deltaBadge(value, target) {
+  const diffPct = target > 0 ? Math.abs(value - target) / target : 0;
+  if (diffPct <= 0.02) return `<span class="text-emerald-600 dark:text-emerald-400 font-medium">exact match</span>`;
+  if (diffPct <= 0.1) return `<span class="text-amber-600 dark:text-amber-400 font-medium">close</span>`;
+  return `<span class="text-rose-600 dark:text-rose-400 font-medium">off target</span>`;
 }
 
 function renderPlannerTab() {
@@ -148,19 +262,20 @@ function renderPlannerTab() {
   const calPerPortion = AppState.plannerCalPerPortion || 500;
   const maxPrepMin = AppState.plannerMaxPrepMin || 0;
   const maxCookMin = AppState.plannerMaxCookMin || 0;
+  const diet = AppState.plannerDiet || "any";
   const totalTime = (Number(maxPrepMin) || 0) + (Number(maxCookMin) || 0);
   const totalBatchCal = calPerPortion * portions;
-  const plan = AppState.planLast;
+  const candidates = AppState.planCandidates || [];
 
   return `
-    <h2 class="text-2xl font-bold text-slate-800 mb-1">Meal Prep Planner</h2>
-    <p class="text-sm text-slate-500 mb-5">
+    <h2 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-1">Meal Prep Planner</h2>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mb-5">
       Plan <strong>one</strong> batch-cooked lunch or dinner, portioned into meal-prep containers.
       Set the calories you want <em>per container</em> and how many containers you need — the whole
       batch scales so total calories = cal/portion × portions.
     </p>
 
-    <div class="bg-white rounded-xl border border-slate-200 p-5 mb-5">
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 mb-5">
       <div class="grid sm:grid-cols-2 gap-4">
         <label class="field-label">Meal type
           <select id="planner-meal-type" data-planner-field="mealType" class="field-input">
@@ -177,10 +292,29 @@ function renderPlannerTab() {
         <label class="field-label mb-1">Number of portions (meal-prep containers)</label>
         <div class="flex items-center gap-3">
           <input type="range" min="1" max="20" step="1" value="${portions}" data-planner-live="portions" class="flex-1 accent-indigo-600">
-          <select data-planner-live="portions" class="border rounded-lg px-2 py-2 text-sm w-24">
+          <select data-planner-live="portions" class="field-input w-24">
             ${PLANNER_PORTION_OPTIONS.map((n) => `<option value="${n}" ${portions === n ? "selected" : ""}>${n}</option>`).join("")}
           </select>
         </div>
+      </div>
+
+      <div class="mt-4">
+        <label class="field-label">Diet (optional)
+          <select id="planner-diet" data-planner-field="diet" class="field-input">
+            ${Object.entries(DIETS).map(([key, d]) => `<option value="${key}" ${diet === key ? "selected" : ""}>${escapeHtml(d.label)}</option>`).join("")}
+          </select>
+        </label>
+        <p id="planner-diet-description" class="text-xs text-slate-400 dark:text-slate-500 mt-1">${escapeHtml(DIETS[diet].description)}</p>
+      </div>
+
+      <div class="mt-4">
+        <label class="field-label mb-1">Target macros per portion in grams (optional)</label>
+        <div class="grid grid-cols-3 gap-3">
+          <input type="number" min="0" step="1" placeholder="Protein" value="${AppState.plannerTargetProtein || ""}" data-planner-field="targetProtein" class="field-input">
+          <input type="number" min="0" step="1" placeholder="Carbs" value="${AppState.plannerTargetCarbs || ""}" data-planner-field="targetCarbs" class="field-input">
+          <input type="number" min="0" step="1" placeholder="Fat" value="${AppState.plannerTargetFat || ""}" data-planner-field="targetFat" class="field-input">
+        </div>
+        <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">Used to rank candidates by closest macro match — the calorie target above is still what's scaled to exactly.</p>
       </div>
 
       <div class="grid sm:grid-cols-2 gap-4 mt-4">
@@ -191,72 +325,120 @@ function renderPlannerTab() {
           <input type="number" id="planner-max-cook" min="0" step="5" value="${maxCookMin || ""}" placeholder="Any" data-planner-field="maxCookMin" class="field-input">
         </label>
       </div>
-      <p id="planner-total-time-text" class="text-xs text-slate-400 mt-1">Total time filter: ${totalTime > 0 ? formatNum(totalTime, 0) + " min" : "no limit set"}</p>
+      <p id="planner-total-time-text" class="text-xs text-slate-400 dark:text-slate-500 mt-1">Total time filter: ${totalTime > 0 ? formatNum(totalTime, 0) + " min" : "no limit set"}</p>
 
-      <div id="planner-batch-target-text" class="bg-slate-50 rounded-lg px-3 py-2 text-sm text-slate-600 mt-4">
+      <div id="planner-batch-target-text" class="bg-slate-50 dark:bg-slate-800/60 rounded-lg px-3 py-2 text-sm text-slate-600 dark:text-slate-300 mt-4">
         Batch target: <strong>${formatNum(totalBatchCal, 0)}</strong> cal total (${formatNum(calPerPortion, 0)} cal × ${portions} portions)
       </div>
 
-      <button data-action="generate-plan" class="btn-primary mt-4">${plan ? "Regenerate Plan" : "Generate Meal Prep Plan"}</button>
-      <p class="text-xs text-slate-400 mt-2">Tip: set up your Profile tab and click "Use as Meal Plan Target" for a starting calories/portion suggestion.</p>
+      <button data-action="generate-plan" class="btn-primary mt-4">${candidates.length ? "Show More Options" : "Generate Meal Prep Options"}</button>
+      <p class="text-xs text-slate-400 dark:text-slate-500 mt-2">Tip: set up your Profile tab and click "Use as Meal Plan Target" for a starting calories/portion suggestion.</p>
     </div>
 
-    ${plan ? renderPlanResults(plan) : ""}
+    ${candidates.length ? renderCandidateTiles() : ""}
+    ${renderPlanModal()}
   `;
 }
 
-function renderPlanResults(plan) {
+function renderCandidateTiles() {
+  const candidates = AppState.planCandidates || [];
+  const meta = AppState.planMeta || {};
+  const tiles = candidates
+    .map(
+      (c) => `
+    <button data-action="open-plan-modal" data-id="${c.id}"
+      class="card-anim text-left bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-md transition cursor-pointer">
+      <div class="flex justify-between items-start gap-2 mb-2">
+        <h3 class="font-semibold text-slate-800 dark:text-slate-100">${escapeHtml(c.recipeName)}</h3>
+        ${c.type === "recommended" ? `<span class="badge bg-purple-100 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 shrink-0">recommended</span>` : `<span class="badge shrink-0">mine</span>`}
+      </div>
+      <div class="grid grid-cols-4 gap-1.5 text-center mb-2">
+        <div class="macro-tile bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300"><div class="font-bold text-sm">${formatNum(c.perPortion.cal, 0)}</div><div class="text-[9px] uppercase tracking-wide">cal</div></div>
+        <div class="macro-tile bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300"><div class="font-bold text-sm">${formatNum(c.perPortion.protein, 0)}g</div><div class="text-[9px] uppercase tracking-wide">protein</div></div>
+        <div class="macro-tile bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300"><div class="font-bold text-sm">${formatNum(c.perPortion.carbs, 0)}g</div><div class="text-[9px] uppercase tracking-wide">carbs</div></div>
+        <div class="macro-tile bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300"><div class="font-bold text-sm">${formatNum(c.perPortion.fat, 0)}g</div><div class="text-[9px] uppercase tracking-wide">fat</div></div>
+      </div>
+      <div class="text-xs text-slate-500 dark:text-slate-400">⏱ ${formatNum(c.prepTimeMin + c.cookTimeMin, 0)}m total · tap to view recipe</div>
+    </button>`
+    )
+    .join("");
+
+  return `
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="font-semibold text-slate-700 dark:text-slate-300">Pick a recipe (${candidates.length} option${candidates.length === 1 ? "" : "s"})</h3>
+    </div>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-2">${tiles}</div>
+    ${meta.dietFiltered ? `<p class="text-xs text-slate-400 dark:text-slate-500 mt-2">No recipe matched that diet filter, so this ignores it — add recipes that fit, or pick "No specific diet".</p>` : ""}
+    ${meta.usedFallbackTime ? `<p class="text-xs text-slate-400 dark:text-slate-500 mt-1">No recipe matched your time filters, so this ignores them.</p>` : ""}
+    ${!meta.usedOwn ? `<p class="text-xs text-slate-400 dark:text-slate-500 mt-1">No saved recipes for this meal type yet, so these are starter ideas from the Recommended tab.</p>` : ""}
+  `;
+}
+
+function renderPlanModal() {
+  const id = AppState.openPlanCandidateId;
+  if (!id) return "";
+  const plan = (AppState.planCandidates || []).find((c) => c.id === id);
+  if (!plan) return "";
+
   const totalTime = plan.prepTimeMin + plan.cookTimeMin;
   const ingredientItems = plan.ingredients
     .map((ing) => `<li>${formatNum(ing.amount, 2)} ${escapeHtml(ing.unit)} ${escapeHtml(ing.name)}</li>`)
     .join("");
   const stepItems = plan.steps.length
     ? plan.steps.map((s) => `<li>${escapeHtml(s)}</li>`).join("")
-    : `<li class="text-slate-400 list-none -ml-5">No steps recorded — check the source link for the full method.</li>`;
+    : `<li class="text-slate-400 dark:text-slate-500 list-none -ml-5">No steps recorded — check the source link for the full method.</li>`;
+  const tipItems = plan.tips.map((t) => `<li>${escapeHtml(t)}</li>`).join("");
 
   return `
-    <div class="bg-white rounded-xl border border-slate-200 p-5 card-anim">
-      <div class="flex justify-between items-start gap-2 mb-3">
+  <div id="plan-modal-backdrop" data-action="close-plan-modal"
+    class="modal-backdrop fixed inset-0 z-50 bg-slate-900/60 dark:bg-slate-950/75 flex items-start sm:items-center justify-center p-4 overflow-y-auto">
+    <div class="modal-panel bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl my-8" onclick="event.stopPropagation()">
+      <div class="sticky top-0 bg-white dark:bg-slate-800 rounded-t-2xl border-b border-slate-100 dark:border-slate-700 p-5 flex justify-between items-start gap-3">
         <div>
-          <h3 class="text-xl font-bold text-slate-800">${escapeHtml(plan.recipeName)}</h3>
-          <span class="badge">${escapeHtml(plan.mealType)}</span>
-          ${plan.type === "recommended" ? `<span class="badge bg-purple-100 text-purple-700">recommended</span>` : `<span class="badge">mine</span>`}
+          <h3 class="text-xl font-bold text-slate-800 dark:text-slate-100">${escapeHtml(plan.recipeName)}</h3>
+          ${plan.type === "recommended" ? `<span class="badge bg-purple-100 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300">recommended</span>` : `<span class="badge">mine</span>`}
         </div>
-        <div class="text-right text-xs">
-          ${plan.sourceUrl ? `<a href="${escapeHtml(plan.sourceUrl)}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:underline block">Source ↗</a>` : ""}
-          <a href="${escapeHtml(plan.youtubeSearchUrl)}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:underline block">Search YouTube ↗</a>
+        <button data-action="close-plan-modal" class="icon-btn text-lg" title="Close (Esc)">✕</button>
+      </div>
+
+      <div class="p-5">
+        <div class="text-right text-xs mb-3">
+          ${plan.sourceUrl ? `<a href="${escapeHtml(plan.sourceUrl)}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 dark:text-indigo-400 hover:underline block">Source ↗</a>` : ""}
+          <a href="${escapeHtml(plan.youtubeSearchUrl)}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 dark:text-indigo-400 hover:underline block">Search YouTube ↗</a>
         </div>
+
+        <div class="grid grid-cols-3 gap-2 text-center mb-3">
+          <div class="macro-tile bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300"><div class="font-bold">${formatNum(plan.prepTimeMin, 0)}m</div><div class="text-[10px] uppercase tracking-wide">prep</div></div>
+          <div class="macro-tile bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300"><div class="font-bold">${formatNum(plan.cookTimeMin, 0)}m</div><div class="text-[10px] uppercase tracking-wide">cook</div></div>
+          <div class="macro-tile bg-slate-800 dark:bg-slate-700 text-white"><div class="font-bold">${formatNum(totalTime, 0)}m</div><div class="text-[10px] uppercase tracking-wide">total</div></div>
+        </div>
+
+        <div class="grid grid-cols-4 gap-2 text-center mb-1">
+          <div class="macro-tile bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300"><div class="font-bold">${formatNum(plan.perPortion.cal, 0)}</div><div class="text-[10px] uppercase tracking-wide">cal/portion</div></div>
+          <div class="macro-tile bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300"><div class="font-bold">${formatNum(plan.perPortion.protein, 0)}g</div><div class="text-[10px] uppercase tracking-wide">protein</div></div>
+          <div class="macro-tile bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300"><div class="font-bold">${formatNum(plan.perPortion.carbs, 0)}g</div><div class="text-[10px] uppercase tracking-wide">carbs</div></div>
+          <div class="macro-tile bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300"><div class="font-bold">${formatNum(plan.perPortion.fat, 0)}g</div><div class="text-[10px] uppercase tracking-wide">fat</div></div>
+        </div>
+        <p class="text-xs text-center mb-4">${formatNum(plan.perPortion.cal, 0)} cal vs ${formatNum(plan.targetCalPerPortion, 0)} cal target — ${deltaBadge(plan.perPortion.cal, plan.targetCalPerPortion)}</p>
+
+        <h4 class="font-semibold text-slate-700 dark:text-slate-300 mb-1">Ingredients (whole batch, ${plan.portions} portions)</h4>
+        <ol class="list-decimal list-inside text-sm text-slate-600 dark:text-slate-300 space-y-0.5 mb-4">${ingredientItems}</ol>
+
+        <h4 class="font-semibold text-slate-700 dark:text-slate-300 mb-1">Steps</h4>
+        <ol class="list-decimal list-inside text-sm text-slate-600 dark:text-slate-300 space-y-1 mb-4">${stepItems}</ol>
+
+        <h4 class="font-semibold text-slate-700 dark:text-slate-300 mb-1">Tips &amp; tricks</h4>
+        <ul class="list-disc list-inside text-sm text-slate-600 dark:text-slate-300 space-y-1 mb-2">${tipItems}</ul>
+
+        <div class="bg-slate-800 dark:bg-slate-700 text-white rounded-xl p-4 flex flex-wrap items-center justify-between gap-3 mt-4">
+          <div>
+            <div class="text-xs text-slate-300">Total batch</div>
+            <div class="text-xl font-bold">${formatNum(plan.totals.cal, 0)} cal <span class="text-xs font-normal text-slate-300">across ${plan.portions} portions</span></div>
+          </div>
+          <div class="text-xs">${formatNum(plan.totals.protein, 0)}g protein · ${formatNum(plan.totals.carbs, 0)}g carbs · ${formatNum(plan.totals.fat, 0)}g fat</div>
+        </div>
+        ${plan.type === "recommended" ? `<p class="text-xs text-slate-400 dark:text-slate-500 mt-3">This is a starter idea from the Recommended tab — its ingredient list is a placeholder; add it to My Recipes and fill in real ingredients for full accuracy.</p>` : ""}
       </div>
-
-      <div class="grid grid-cols-3 gap-2 text-center mb-3">
-        <div class="macro-tile bg-slate-50 text-slate-700"><div class="font-bold">${formatNum(plan.prepTimeMin, 0)}m</div><div class="text-[10px] uppercase tracking-wide">prep</div></div>
-        <div class="macro-tile bg-slate-50 text-slate-700"><div class="font-bold">${formatNum(plan.cookTimeMin, 0)}m</div><div class="text-[10px] uppercase tracking-wide">cook</div></div>
-        <div class="macro-tile bg-slate-800 text-white"><div class="font-bold">${formatNum(totalTime, 0)}m</div><div class="text-[10px] uppercase tracking-wide">total</div></div>
-      </div>
-
-      <div class="grid grid-cols-4 gap-2 text-center mb-1">
-        <div class="macro-tile bg-indigo-50 text-indigo-700"><div class="font-bold">${formatNum(plan.perPortion.cal, 0)}</div><div class="text-[10px] uppercase tracking-wide">cal/portion</div></div>
-        <div class="macro-tile bg-rose-50 text-rose-700"><div class="font-bold">${formatNum(plan.perPortion.protein, 0)}g</div><div class="text-[10px] uppercase tracking-wide">protein</div></div>
-        <div class="macro-tile bg-amber-50 text-amber-700"><div class="font-bold">${formatNum(plan.perPortion.carbs, 0)}g</div><div class="text-[10px] uppercase tracking-wide">carbs</div></div>
-        <div class="macro-tile bg-teal-50 text-teal-700"><div class="font-bold">${formatNum(plan.perPortion.fat, 0)}g</div><div class="text-[10px] uppercase tracking-wide">fat</div></div>
-      </div>
-      <p class="text-xs text-center mb-4">${formatNum(plan.perPortion.cal, 0)} cal vs ${formatNum(plan.targetCalPerPortion, 0)} cal target — ${deltaBadge(plan.perPortion.cal, plan.targetCalPerPortion)}</p>
-
-      <h4 class="font-semibold text-slate-700 mb-1">Ingredients (whole batch, ${plan.portions} portions)</h4>
-      <ol class="list-decimal list-inside text-sm text-slate-600 space-y-0.5 mb-4">${ingredientItems}</ol>
-
-      <h4 class="font-semibold text-slate-700 mb-1">Steps</h4>
-      <ol class="list-decimal list-inside text-sm text-slate-600 space-y-1">${stepItems}</ol>
     </div>
-
-    <div class="bg-slate-800 text-white rounded-xl p-5 flex flex-wrap items-center justify-between gap-3 mt-4">
-      <div>
-        <div class="text-sm text-slate-300">Total batch</div>
-        <div class="text-2xl font-bold">${formatNum(plan.totals.cal, 0)} cal <span class="text-sm font-normal text-slate-300">across ${plan.portions} portions</span></div>
-      </div>
-      <div class="text-sm">${formatNum(plan.totals.protein, 0)}g protein · ${formatNum(plan.totals.carbs, 0)}g carbs · ${formatNum(plan.totals.fat, 0)}g fat</div>
-    </div>
-    ${plan.type === "recommended" ? `<p class="text-xs text-slate-400 mt-3">No saved ${escapeHtml(plan.mealType)} recipes yet, so this used a starter idea from the Recommended tab — its ingredient list is a placeholder; add your own recipes for a fully personalized plan.</p>` : ""}
-    ${plan.usedFallbackPool ? `<p class="text-xs text-slate-400 mt-1">No ${escapeHtml(plan.mealType)} recipe matched your time filters, so this ignores them — add faster recipes or loosen the filters.</p>` : ""}
-  `;
+  </div>`;
 }

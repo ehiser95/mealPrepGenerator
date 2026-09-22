@@ -129,25 +129,25 @@ function handleResetAll() {
 
 function renderShareTab() {
   return `
-    <h2 class="text-2xl font-bold text-slate-800 mb-1">Share &amp; Backup</h2>
-    <p class="text-sm text-slate-500 mb-5">There's no shared server here, so sharing works peer-to-peer: generate a code (or a file) and send it to someone else running this same app — they paste/import it into their own copy.</p>
+    <h2 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-1">Share &amp; Backup</h2>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mb-5">There's no shared server here, so sharing works peer-to-peer: generate a code (or a file) and send it to someone else running this same app — they paste/import it into their own copy.</p>
 
     ${AppState.shareCodeOutput ? `
-    <div class="bg-white rounded-xl border border-slate-200 p-5 mb-5">
-      <h3 class="font-semibold text-slate-700 mb-2">Share code for "${escapeHtml(AppState.shareCodeRecipeName)}"</h3>
-      <textarea id="share-code-output" readonly rows="3" class="w-full border rounded-lg px-3 py-2 text-xs font-mono bg-slate-50">${escapeHtml(AppState.shareCodeOutput)}</textarea>
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 mb-5">
+      <h3 class="font-semibold text-slate-700 dark:text-slate-300 mb-2">Share code for "${escapeHtml(AppState.shareCodeRecipeName)}"</h3>
+      <textarea id="share-code-output" readonly rows="3" class="w-full border rounded-lg px-3 py-2 text-xs font-mono bg-slate-50 dark:bg-slate-800/60">${escapeHtml(AppState.shareCodeOutput)}</textarea>
       <button data-action="copy-share-code" class="btn-secondary text-sm mt-2">Copy to Clipboard</button>
     </div>` : ""}
 
-    <div class="bg-white rounded-xl border border-slate-200 p-5 mb-5">
-      <h3 class="font-semibold text-slate-700 mb-2">Import a share code or backup</h3>
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 mb-5">
+      <h3 class="font-semibold text-slate-700 dark:text-slate-300 mb-2">Import a share code or backup</h3>
       <textarea id="share-code-input" rows="3" placeholder="Paste a share code here…" class="w-full border rounded-lg px-3 py-2 text-xs font-mono"></textarea>
       <button data-action="import-share-code" class="btn-primary text-sm mt-2">Import</button>
     </div>
 
-    <div class="bg-white rounded-xl border border-slate-200 p-5 mb-5">
-      <h3 class="font-semibold text-slate-700 mb-2">Full backup</h3>
-      <p class="text-xs text-slate-400 mb-3">Download everything (recipes + profiles) as a file, or export your recipes into real Meals/&lt;category&gt;/ folders on disk (Chrome/Edge only).</p>
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 mb-5">
+      <h3 class="font-semibold text-slate-700 dark:text-slate-300 mb-2">Full backup</h3>
+      <p class="text-xs text-slate-400 dark:text-slate-500 mb-3">Download everything (recipes + profiles) as a file, or export your recipes into real Meals/&lt;category&gt;/ folders on disk (Chrome/Edge only).</p>
       <div class="flex flex-wrap gap-2">
         <button data-action="export-all" class="btn-secondary text-sm">Download Backup (.json)</button>
         <label class="btn-secondary text-sm cursor-pointer">
@@ -158,9 +158,9 @@ function renderShareTab() {
       </div>
     </div>
 
-    <div class="bg-rose-50 border border-rose-200 rounded-xl p-5">
-      <h3 class="font-semibold text-rose-700 mb-2">Danger zone</h3>
-      <p class="text-xs text-rose-500 mb-3">Deletes all recipes, profiles, and settings from this browser.</p>
+    <div class="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-xl p-5">
+      <h3 class="font-semibold text-rose-700 dark:text-rose-300 mb-2">Danger zone</h3>
+      <p class="text-xs text-rose-500 dark:text-rose-400 mb-3">Deletes all recipes, profiles, and settings from this browser.</p>
       <button data-action="reset-all" class="bg-rose-600 hover:bg-rose-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">Reset All Data</button>
     </div>
   `;

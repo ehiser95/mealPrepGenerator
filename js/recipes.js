@@ -150,15 +150,15 @@ function renderRecipesTab() {
   return `
     <div class="flex items-center justify-between mb-5">
       <div>
-        <h2 class="text-2xl font-bold text-slate-800">My Recipes</h2>
-        <p class="text-sm text-slate-500">${recipes.length} saved recipe${recipes.length === 1 ? "" : "s"}</p>
+        <h2 class="text-2xl font-bold text-slate-800 dark:text-slate-100">My Recipes</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400">${recipes.length} saved recipe${recipes.length === 1 ? "" : "s"}</p>
       </div>
       <button data-action="new-recipe" class="btn-primary">+ New Recipe</button>
     </div>
     ${recipes.length === 0
       ? `<div class="empty-state">
-           <p class="text-lg font-medium text-slate-600">No recipes yet</p>
-           <p class="text-sm text-slate-400 mt-1">Add your own recipe, or check the Recommended tab for starter ideas.</p>
+           <p class="text-lg font-medium text-slate-600 dark:text-slate-300">No recipes yet</p>
+           <p class="text-sm text-slate-400 dark:text-slate-500 mt-1">Add your own recipe, or check the Recommended tab for starter ideas.</p>
          </div>`
       : `<div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">${cards}</div>`}
   `;
@@ -169,14 +169,14 @@ function renderRecipeCard(r) {
   const scale = AppState.cardScales[r.id] || 1;
   const expanded = AppState.expandedIds.has(r.id);
   return `
-  <div class="card-anim bg-white rounded-xl shadow-sm border border-slate-200 p-4" data-id="${r.id}">
+  <div class="card-anim bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4" data-id="${r.id}">
     <div class="flex justify-between items-start gap-2">
       <div class="min-w-0">
-        <h3 class="font-semibold text-lg text-slate-800 truncate">${escapeHtml(r.name)}</h3>
+        <h3 class="font-semibold text-lg text-slate-800 dark:text-slate-100 truncate">${escapeHtml(r.name)}</h3>
         <span class="badge">${escapeHtml(r.category)}</span>
-        <div class="text-xs text-slate-500 mt-1">⏱ ${formatNum(r.prepTimeMin, 0)}m prep · ${formatNum(r.cookTimeMin, 0)}m cook · ${formatNum((Number(r.prepTimeMin) || 0) + (Number(r.cookTimeMin) || 0), 0)}m total</div>
-        ${r.sourceUrl ? `<a href="${escapeHtml(r.sourceUrl)}" target="_blank" rel="noopener noreferrer" class="text-xs text-indigo-600 hover:underline block mt-1 truncate">Source link ↗</a>` : ""}
-        <a href="https://www.youtube.com/results?search_query=${encodeURIComponent(r.name + " recipe")}" target="_blank" rel="noopener noreferrer" class="text-xs text-indigo-600 hover:underline block truncate">Search YouTube ↗</a>
+        <div class="text-xs text-slate-500 dark:text-slate-400 mt-1">⏱ ${formatNum(r.prepTimeMin, 0)}m prep · ${formatNum(r.cookTimeMin, 0)}m cook · ${formatNum((Number(r.prepTimeMin) || 0) + (Number(r.cookTimeMin) || 0), 0)}m total</div>
+        ${r.sourceUrl ? `<a href="${escapeHtml(r.sourceUrl)}" target="_blank" rel="noopener noreferrer" class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline block mt-1 truncate">Source link ↗</a>` : ""}
+        <a href="https://www.youtube.com/results?search_query=${encodeURIComponent(r.name + " recipe")}" target="_blank" rel="noopener noreferrer" class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline block truncate">Search YouTube ↗</a>
       </div>
       <div class="flex gap-1 shrink-0">
         <button data-action="edit-recipe" data-id="${r.id}" title="Edit" class="icon-btn">✏️</button>
@@ -184,12 +184,12 @@ function renderRecipeCard(r) {
       </div>
     </div>
     <div class="grid grid-cols-4 gap-2 text-center my-3">
-      <div class="macro-tile bg-indigo-50 text-indigo-700"><div class="font-bold">${formatNum(per.cal, 0)}</div><div class="text-[10px] uppercase tracking-wide">cal</div></div>
-      <div class="macro-tile bg-rose-50 text-rose-700"><div class="font-bold">${formatNum(per.protein, 0)}g</div><div class="text-[10px] uppercase tracking-wide">protein</div></div>
-      <div class="macro-tile bg-amber-50 text-amber-700"><div class="font-bold">${formatNum(per.carbs, 0)}g</div><div class="text-[10px] uppercase tracking-wide">carbs</div></div>
-      <div class="macro-tile bg-teal-50 text-teal-700"><div class="font-bold">${formatNum(per.fat, 0)}g</div><div class="text-[10px] uppercase tracking-wide">fat</div></div>
+      <div class="macro-tile bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300"><div class="font-bold">${formatNum(per.cal, 0)}</div><div class="text-[10px] uppercase tracking-wide">cal</div></div>
+      <div class="macro-tile bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300"><div class="font-bold">${formatNum(per.protein, 0)}g</div><div class="text-[10px] uppercase tracking-wide">protein</div></div>
+      <div class="macro-tile bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300"><div class="font-bold">${formatNum(per.carbs, 0)}g</div><div class="text-[10px] uppercase tracking-wide">carbs</div></div>
+      <div class="macro-tile bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300"><div class="font-bold">${formatNum(per.fat, 0)}g</div><div class="text-[10px] uppercase tracking-wide">fat</div></div>
     </div>
-    <div class="text-xs text-slate-500 mb-3">per serving · ${formatNum(r.servings, 1)} servings total</div>
+    <div class="text-xs text-slate-500 dark:text-slate-400 mb-3">per serving · ${formatNum(r.servings, 1)} servings total</div>
     <div class="flex items-center gap-2">
       <button data-action="toggle-scale" data-id="${r.id}" class="btn-secondary text-xs flex-1">${expanded ? "Hide Scaling" : "Scale Batch"}</button>
       <button data-action="share-recipe" data-id="${r.id}" class="btn-secondary text-xs flex-1">Share</button>
@@ -201,7 +201,7 @@ function renderRecipeCard(r) {
 function renderScalePanel(r, scale) {
   const scaledServings = (Number(r.servings) || 1) * scale;
   return `
-  <div class="mt-3 pt-3 border-t border-slate-100 scale-panel">
+  <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700 scale-panel">
     <div class="flex items-center gap-3">
       <input type="range" min="0.25" max="5" step="0.25" value="${scale}"
         data-scale-live="slider" data-id="${r.id}" class="flex-1 accent-indigo-600">
@@ -212,12 +212,12 @@ function renderScalePanel(r, scale) {
       ${[1, 2, 3].map((x) => `<button data-action="scale-quick" data-id="${r.id}" data-value="${x}" class="btn-chip">${x}x</button>`).join("")}
     </div>
     <p class="text-sm mt-2">Batch makes <strong>${formatNum(scaledServings, 1)}</strong> servings</p>
-    <ol class="text-sm mt-1 list-decimal list-inside text-slate-600 max-h-32 overflow-y-auto">
+    <ol class="text-sm mt-1 list-decimal list-inside text-slate-600 dark:text-slate-300 max-h-32 overflow-y-auto">
       ${r.ingredients.map((ing) => `<li>${formatNum(ing.amount * scale, 2)} ${escapeHtml(ing.unit)} ${escapeHtml(ing.name)}</li>`).join("")}
     </ol>
-    <h4 class="text-xs font-semibold text-slate-500 uppercase mt-3 mb-1">Steps</h4>
-    <ol class="text-sm list-decimal list-inside text-slate-600 space-y-0.5">
-      ${r.steps && r.steps.length ? r.steps.map((s) => `<li>${escapeHtml(s.text)}</li>`).join("") : `<li class="text-slate-400 list-none -ml-5">No steps added yet.</li>`}
+    <h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mt-3 mb-1">Steps</h4>
+    <ol class="text-sm list-decimal list-inside text-slate-600 dark:text-slate-300 space-y-0.5">
+      ${r.steps && r.steps.length ? r.steps.map((s) => `<li>${escapeHtml(s.text)}</li>`).join("") : `<li class="text-slate-400 dark:text-slate-500 list-none -ml-5">No steps added yet.</li>`}
     </ol>
   </div>`;
 }
@@ -353,7 +353,7 @@ function updateEditorTotalsDisplay() {
 
 function renderIngredientRow(ing) {
   return `
-  <div class="ingredient-row grid grid-cols-12 gap-2 items-center py-2 border-b border-slate-100" data-ing-row data-id="${ing.id}">
+  <div class="ingredient-row grid grid-cols-12 gap-2 items-center py-2 border-b border-slate-100 dark:border-slate-700" data-ing-row data-id="${ing.id}">
     <input type="text" list="food-datalist" placeholder="Ingredient name" value="${escapeHtml(ing.name)}"
       data-ing-field="name" data-id="${ing.id}" class="col-span-3 border rounded-lg px-2 py-1.5 text-sm">
     <input type="number" min="0" step="any" value="${ing.amount}" placeholder="Amt"
@@ -376,7 +376,7 @@ function renderIngredientRow(ing) {
 function renderStepRow(step, index) {
   return `
   <div class="flex items-center gap-2 py-1.5" data-step-row data-id="${step.id}">
-    <span class="w-6 text-sm text-slate-400 font-medium text-right">${index + 1}.</span>
+    <span class="w-6 text-sm text-slate-400 dark:text-slate-500 font-medium text-right">${index + 1}.</span>
     <input type="text" placeholder="e.g. Preheat oven to 400°F" value="${escapeHtml(step.text)}"
       data-step-field="text" data-id="${step.id}" class="flex-1 border rounded-lg px-3 py-1.5 text-sm">
     <button data-action="remove-step-row" data-id="${step.id}" class="icon-btn" title="Remove step">🗑️</button>
@@ -388,13 +388,13 @@ function renderRecipeEditor() {
   const isNew = AppState.recipeEditorId === "new";
   return `
   <div class="flex items-center justify-between mb-5">
-    <h2 class="text-2xl font-bold text-slate-800">${isNew ? "New Recipe" : "Edit Recipe"}</h2>
+    <h2 class="text-2xl font-bold text-slate-800 dark:text-slate-100">${isNew ? "New Recipe" : "Edit Recipe"}</h2>
     <button data-action="cancel-recipe-edit" class="btn-secondary text-sm">← Back to Recipes</button>
   </div>
 
-  <div class="bg-white rounded-xl border border-slate-200 p-5 mb-5">
-    <h3 class="font-semibold text-slate-700 mb-3">Import from a link or pasted text</h3>
-    <p class="text-xs text-slate-400 mb-2">
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 mb-5">
+    <h3 class="font-semibold text-slate-700 dark:text-slate-300 mb-3">Import from a link or pasted text</h3>
+    <p class="text-xs text-slate-400 dark:text-slate-500 mb-2">
       We'll try to fetch the page directly, but most recipe/YouTube sites block cross-origin
       requests (CORS) from a page like this one — if that happens, paste the ingredient list
       or video description below instead. Auto-detection only works on lines with an explicit
@@ -411,7 +411,7 @@ function renderRecipeEditor() {
     <button data-action="parse-pasted-text" class="btn-secondary text-sm mt-2">Parse Ingredients from Text</button>
   </div>
 
-  <div class="bg-white rounded-xl border border-slate-200 p-5 mb-5">
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 mb-5">
     <div class="grid sm:grid-cols-4 gap-3 mb-2">
       <input type="text" id="recipe-name" placeholder="Recipe name" value="${escapeHtml(d.name)}"
         class="sm:col-span-2 border rounded-lg px-3 py-2 text-sm font-medium">
@@ -432,12 +432,12 @@ function renderRecipeEditor() {
       </label>
     </div>
 
-    <h3 class="font-semibold text-slate-700 mt-4 mb-1">Ingredients</h3>
-    <p class="text-xs text-slate-400 mb-2">
+    <h3 class="font-semibold text-slate-700 dark:text-slate-300 mt-4 mb-1">Ingredients</h3>
+    <p class="text-xs text-slate-400 dark:text-slate-500 mb-2">
       Type a name — common ingredients (e.g. "bell pepper", "chicken breast, cooked") auto-fill
       nutrition per 100g. Choose any weight unit; values convert automatically.
     </p>
-    <div class="grid grid-cols-12 gap-2 text-[10px] uppercase text-slate-400 px-1">
+    <div class="grid grid-cols-12 gap-2 text-[10px] uppercase text-slate-400 dark:text-slate-500 px-1">
       <div class="col-span-3">Name</div><div class="col-span-2">Amount</div><div class="col-span-1">Unit</div>
       <div class="col-span-1">Cal</div><div class="col-span-1">Prot</div><div class="col-span-1">Carb</div>
       <div class="col-span-1">Fat</div><div class="col-span-2"></div>
@@ -447,10 +447,10 @@ function renderRecipeEditor() {
     </div>
     <button data-action="add-ingredient-row" class="btn-secondary text-sm mt-3">+ Add Ingredient</button>
 
-    <div id="editor-totals" class="mt-4 text-sm bg-slate-50 rounded-lg px-3 py-2 text-slate-600"></div>
+    <div id="editor-totals" class="mt-4 text-sm bg-slate-50 dark:bg-slate-800/60 rounded-lg px-3 py-2 text-slate-600 dark:text-slate-300"></div>
 
-    <h3 class="font-semibold text-slate-700 mt-4 mb-1">Steps (optional)</h3>
-    <p class="text-xs text-slate-400 mb-2">Numbered cooking steps — shown alongside the ingredients, source, and YouTube search when this recipe is used in a meal prep plan.</p>
+    <h3 class="font-semibold text-slate-700 dark:text-slate-300 mt-4 mb-1">Steps (optional)</h3>
+    <p class="text-xs text-slate-400 dark:text-slate-500 mb-2">Numbered cooking steps — shown alongside the ingredients, source, and YouTube search when this recipe is used in a meal prep plan.</p>
     <div id="step-rows">
       ${d.steps.map(renderStepRow).join("")}
     </div>

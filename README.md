@@ -17,12 +17,32 @@ account system, no data leaves your browser — everything is stored in
 - **Recipe scaling** — scale a whole recipe batch with a slider, quick
   1x/2x/3x buttons, or a manual multiplier; per-serving macros stay
   correct, total ingredient amounts and servings scale together.
-- **Meal plan generator** — choose 2/4/6/8/10 meals/day and a daily calorie
-  target (weight loss, maintenance, or weight gain), and it assembles a plan
-  from your saved recipes, scaling portions to hit the target.
+- **Recipe steps & timing** — numbered cooking steps alongside numbered
+  ingredients, plus prep time / cook time fields shown as prep + cook =
+  total everywhere the recipe appears.
+- **Meal Prep Planner** — plans *one* batch-cooked lunch or dinner, portioned
+  into however many meal-prep containers you want. Set calories per portion
+  and a portion count (slider + dropdown, kept in sync) and the whole batch
+  scales so total batch calories = cal/portion × portions exactly. Optional
+  filters: a diet (keto, Atkins-style, low carb, high volume/low calorie,
+  carnivore — see below), target macros per portion, and a max prep/cook
+  time. Generates several candidate recipes as tiles; click one to open a
+  full-screen detail view (numbered ingredients + steps, source/YouTube
+  links, and meal-prep tips like which ingredients are commonly available
+  frozen or pre-chopped) — closes on the X, a click outside, or Esc.
+- **Diet filters** — each option's exact definition and threshold is shown
+  under the dropdown so you can verify it yourself: Keto (~70-75% fat,
+  5-10% carb by calories), Atkins-style (low carb, approximated — this app
+  can't model induction/maintenance phases), Low carb (≤26% of calories from
+  carbs), High volume/low calorie (ranked by calories per gram, after the
+  Volumetrics concept), and Carnivore (animal products only, checked
+  ingredient-by-ingredient against the food database — so it only works for
+  recipes built from known ingredients).
 - **Profile & calorie targets** — local, on-device profiles compute BMR/TDEE
   (Mifflin-St Jeor) and a goal calorie target from age/sex/height/weight/
   activity level, in either metric or imperial units.
+- **Light/dark theme** — toggle in the header, persisted across sessions,
+  and respects your OS preference on first visit.
 - **Recommended meals** — a curated starter list referencing trusted recipe
   sites (by root domain) and a ready-made YouTube search per idea, since we
   can't safely guess a specific working video link.
@@ -91,7 +111,7 @@ js/utils.js          Shared helpers (unit conversion, toasts, formatting)
 js/storage.js        localStorage read/write helpers
 js/recipes.js        Recipe CRUD, macro math, ingredient parsing, editor UI
 js/profile.js        Local profiles, BMR/TDEE calculation
-js/mealplan.js       Meal plan generator
+js/mealplan.js       Meal Prep Planner: diet/macro/time filters, candidate tiles + detail modal
 js/recommended.js    Curated recommended-meals tab
 js/share.js          Share codes, backup export/import, folder export, reset
 js/app.js            App state, tab router, global event wiring

@@ -17,7 +17,13 @@ const AppState = {
   plannerCalPerPortion: 500,
   plannerMaxPrepMin: 0,
   plannerMaxCookMin: 0,
-  planLast: null,
+  plannerDiet: "any",
+  plannerTargetProtein: 0,
+  plannerTargetCarbs: 0,
+  plannerTargetFat: 0,
+  planCandidates: [],
+  planMeta: null,
+  openPlanCandidateId: null,
 
   shareCodeOutput: null,
   shareCodeRecipeName: "",
@@ -56,6 +62,28 @@ function populateFoodDatalist() {
   dl.innerHTML = Object.keys(FOOD_DB)
     .map((k) => `<option value="${escapeHtml(k)}"></option>`)
     .join("");
+}
+
+const THEME_KEY = "mpg_theme_v1";
+
+function applyTheme(theme) {
+  document.documentElement.classList.toggle("dark", theme === "dark");
+  const btn = document.getElementById("theme-toggle-btn");
+  if (btn) btn.textContent = theme === "dark" ? "☀️" : "🌙";
+}
+
+function initTheme() {
+  let theme = localStorage.getItem(THEME_KEY);
+  if (!theme) {
+    theme = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  applyTheme(theme);
+}
+
+function toggleTheme() {
+  const next = document.documentElement.classList.contains("dark") ? "light" : "dark";
+  localStorage.setItem(THEME_KEY, next);
+  applyTheme(next);
 }
 
 function renderApp() {
@@ -143,6 +171,15 @@ document.addEventListener("click", async (e) => {
     case "generate-plan":
       onGeneratePlan();
       break;
+    case "open-plan-modal":
+      openPlanModal(id);
+      break;
+    case "close-plan-modal":
+      closePlanModal();
+      break;
+    case "toggle-theme":
+      toggleTheme();
+      break;
     case "copy-share-code":
       await copyShareCodeToClipboard();
       break;
@@ -186,7 +223,14 @@ document.addEventListener("change", (e) => {
   }
 });
 
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && AppState.openPlanCandidateId) {
+    closePlanModal();
+  }
+});
+
 window.addEventListener("DOMContentLoaded", () => {
+  initTheme();
   AppState.recipes = loadRecipes().map(normalizeRecipe);
   AppState.profiles = loadProfiles();
   AppState.settings = loadSettings();

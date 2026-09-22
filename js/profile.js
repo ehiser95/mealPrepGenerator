@@ -131,23 +131,23 @@ function renderProfileTab() {
   `;
 
   const googleBox = `
-    <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5 text-sm text-amber-800">
+    <div class="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl p-4 mb-5 text-sm text-amber-800 dark:text-amber-300">
       <div class="flex items-center justify-between gap-3">
         <div>
           <strong>Sign in with Google</strong> — not available in a static local file.
-          <p class="text-xs mt-1 text-amber-700">Real Google OAuth needs a registered client ID and a hosted domain/backend.
+          <p class="text-xs mt-1 text-amber-700 dark:text-amber-300">Real Google OAuth needs a registered client ID and a hosted domain/backend.
           Profiles below are private in the sense that they live only in this browser's local storage — nobody else can
           see them, but they also aren't password-protected.</p>
         </div>
-        <button data-action="google-signin" class="btn-secondary text-xs whitespace-nowrap bg-white">Why not?</button>
+        <button data-action="google-signin" class="btn-secondary text-xs whitespace-nowrap bg-white dark:bg-slate-800">Why not?</button>
       </div>
     </div>
   `;
 
   if (!active) {
-    return `<h2 class="text-2xl font-bold text-slate-800 mb-4">Profile</h2>${switcher}${googleBox}
-      <div class="empty-state"><p class="text-lg font-medium text-slate-600">No profile yet</p>
-      <p class="text-sm text-slate-400 mt-1">Create one to get personalized calorie targets.</p></div>`;
+    return `<h2 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-4">Profile</h2>${switcher}${googleBox}
+      <div class="empty-state"><p class="text-lg font-medium text-slate-600 dark:text-slate-300">No profile yet</p>
+      <p class="text-sm text-slate-400 dark:text-slate-500 mt-1">Create one to get personalized calorie targets.</p></div>`;
   }
 
   const bmr = computeBMR(active);
@@ -157,10 +157,10 @@ function renderProfileTab() {
   const weightDisplay = kgToDisplay(active.weightKg, active.weightUnit);
 
   return `
-    <h2 class="text-2xl font-bold text-slate-800 mb-4">Profile</h2>
+    <h2 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-4">Profile</h2>
     ${switcher}
     ${googleBox}
-    <div class="bg-white rounded-xl border border-slate-200 p-5 mb-5">
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 mb-5">
       <div class="grid sm:grid-cols-2 gap-3">
         <label class="field-label">Name
           <input type="text" id="profile-name" value="${escapeHtml(active.name)}" class="field-input">
@@ -211,14 +211,14 @@ function renderProfileTab() {
       <button data-action="save-profile" class="btn-primary mt-4">Save Profile</button>
     </div>
 
-    <div class="bg-white rounded-xl border border-slate-200 p-5">
-      <h3 class="font-semibold text-slate-700 mb-3">Estimated Energy Needs</h3>
+    <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+      <h3 class="font-semibold text-slate-700 dark:text-slate-300 mb-3">Estimated Energy Needs</h3>
       <div class="grid grid-cols-3 gap-3 text-center">
-        <div class="macro-tile bg-slate-50 text-slate-700"><div class="text-xl font-bold">${formatNum(bmr, 0)}</div><div class="text-xs uppercase tracking-wide">BMR</div></div>
-        <div class="macro-tile bg-indigo-50 text-indigo-700"><div class="text-xl font-bold">${formatNum(tdee, 0)}</div><div class="text-xs uppercase tracking-wide">Maintenance (TDEE)</div></div>
-        <div class="macro-tile bg-emerald-50 text-emerald-700"><div class="text-xl font-bold">${formatNum(goalCal, 0)}</div><div class="text-xs uppercase tracking-wide">Goal calories/day</div></div>
+        <div class="macro-tile bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300"><div class="text-xl font-bold">${formatNum(bmr, 0)}</div><div class="text-xs uppercase tracking-wide">BMR</div></div>
+        <div class="macro-tile bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300"><div class="text-xl font-bold">${formatNum(tdee, 0)}</div><div class="text-xs uppercase tracking-wide">Maintenance (TDEE)</div></div>
+        <div class="macro-tile bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300"><div class="text-xl font-bold">${formatNum(goalCal, 0)}</div><div class="text-xs uppercase tracking-wide">Goal calories/day</div></div>
       </div>
-      <p class="text-xs text-slate-400 mt-3">Mifflin-St Jeor estimate — a starting point, not medical advice.</p>
+      <p class="text-xs text-slate-400 dark:text-slate-500 mt-3">Mifflin-St Jeor estimate — a starting point, not medical advice.</p>
       <button data-action="use-goal-as-target" class="btn-secondary text-sm mt-3">Use as Meal Plan Target →</button>
     </div>
   `;

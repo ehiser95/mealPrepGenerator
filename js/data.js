@@ -241,3 +241,103 @@ const ACTIVITY_LEVELS = {
 const RECIPE_CATEGORIES = ["Breakfast", "Lunch", "Dinner", "Snack", "Other"];
 
 const UNIT_TO_GRAMS = { g: 1, kg: 1000, oz: 28.3495, lb: 453.592 };
+
+// Diet filters for the Meal Prep Planner. Thresholds are deliberately
+// simplified (this app can't model diet phases or exact clinical protocols)
+// but are grounded in how each diet is commonly and consistently described:
+//  - Keto: ~70-75% of calories from fat, 20-25% protein, 5-10% carbs.
+//  - Atkins: low-carb/higher-protein; historically phased (induction ~20g
+//    net carbs/day up to a higher maintenance intake), which a per-recipe
+//    filter can't represent, so this approximates the general approach.
+//  - Low carb: a commonly used clinical threshold is roughly <=26% of
+//    calories from carbohydrate.
+//  - Volumetrics ("high volume, low calorie"): ranks/filters by energy
+//    density (calories per gram) rather than a macro ratio, per Dr. Barbara
+//    Rolls' Volumetrics research — low-density foods (produce, lean protein,
+//    broth-based dishes) are roughly under ~1.5-2 kcal/g, vs. energy-dense
+//    foods (oils, nuts, fried food) well above that.
+//  - Carnivore: animal products only (meat, poultry, fish, eggs, dairy) with
+//    no plant foods; checked ingredient-by-ingredient against the food
+//    database below, so it only works for known ingredients.
+const DIETS = {
+  any: {
+    label: "No specific diet",
+    description: "No dietary restrictions — matches any recipe.",
+  },
+  keto: {
+    label: "Keto (ketogenic)",
+    description: "Very low carb, high fat: roughly 70-75% of calories from fat, 20-25% from protein, and 5-10% from carbs.",
+    kind: "macroRatio",
+    maxCarbPct: 10,
+    minFatPct: 65,
+  },
+  atkins: {
+    label: "Atkins-style (low carb)",
+    description: "Low-carb, higher-protein eating in the style of the Atkins diet. This approximates the general approach — not the specific induction/maintenance phase targets — by keeping carbs low.",
+    kind: "macroRatio",
+    maxCarbPct: 15,
+  },
+  lowcarb: {
+    label: "Low carb",
+    description: "General low-carb eating: no more than about 26% of calories from carbohydrate, a commonly used low-carb threshold.",
+    kind: "macroRatio",
+    maxCarbPct: 26,
+  },
+  volumetrics: {
+    label: "High volume, low calorie",
+    description: "Favors lower energy-density recipes (more food weight per calorie, like vegetables, lean protein, and broth-based dishes) so portions feel larger for the same calories. Estimated as calories per gram across the whole recipe, so it only works for recipes with a real ingredient list (not the Recommended tab's placeholder entries).",
+    kind: "density",
+    maxKcalPerGram: 1.6,
+  },
+  carnivore: {
+    label: "Carnivore",
+    description: "Animal products only — meat, poultry, fish, eggs, and dairy — with no vegetables, fruit, grains, or legumes. Checked ingredient-by-ingredient against the built-in food database, so it only works for recipes built from known ingredients (not custom or placeholder ones).",
+    kind: "ingredient",
+  },
+};
+
+// Which FOOD_DB entries count as animal-derived, for the Carnivore diet filter.
+const ANIMAL_FOOD_KEYS = new Set([
+  "chicken breast, cooked",
+  "chicken thigh, cooked",
+  "ground beef 90/10, cooked",
+  "ground turkey, cooked",
+  "salmon, cooked",
+  "tilapia, cooked",
+  "shrimp, cooked",
+  "egg, whole",
+  "egg white",
+  "greek yogurt, plain nonfat",
+  "cottage cheese, low fat",
+  "milk, 2%",
+  "cheddar cheese",
+  "mozzarella, part skim",
+  "feta cheese",
+  "butter",
+]);
+
+// Ingredients that are widely available pre-chopped or frozen at the
+// grocery store, used to surface time-saving tips for a given recipe.
+const FREEZABLE_OR_PRECUT_INGREDIENTS = new Set([
+  "broccoli, cooked",
+  "spinach, raw",
+  "kale, raw",
+  "bell pepper",
+  "onion",
+  "carrot",
+  "zucchini",
+  "mushroom",
+  "edamame",
+  "blueberries",
+  "strawberries",
+  "banana",
+  "shrimp, cooked",
+]);
+
+const GENERIC_MEAL_PREP_TIPS = [
+  "Cook proteins in one big batch, then portion once they've cooled — reheats better than cooking a whole tray fresh each day.",
+  "Let food cool to room temperature before sealing containers; sealing while hot traps steam and makes everything soggy.",
+  "Cook grains and starches slightly under, since they keep softening a bit as they reheat.",
+  "Store sauces or dressings separately and add them at serving time so greens or grains don't get soggy in the fridge.",
+  "Label containers with the date — most meal-prepped dishes keep 3-4 days refrigerated, or 2-3 months frozen.",
+];
