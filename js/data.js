@@ -76,6 +76,13 @@ const RECOMMENDED_MEALS = [
     sourceUrl: "https://www.skinnytaste.com",
     youtubeQuery: "high protein turkey chili meal prep",
     perServing: { cal: 380, protein: 35, carbs: 30, fat: 12 },
+    prepTimeMin: 10,
+    cookTimeMin: 30,
+    steps: [
+      "Brown the ground turkey with diced onion and garlic.",
+      "Stir in beans, diced tomatoes, and chili seasoning; simmer 20-25 minutes.",
+      "Cool slightly, then portion into containers.",
+    ],
   },
   {
     id: "rec-2",
@@ -85,6 +92,13 @@ const RECOMMENDED_MEALS = [
     sourceUrl: "https://www.thecleaneatingcouple.com",
     youtubeQuery: "greek chicken quinoa meal prep bowl",
     perServing: { cal: 450, protein: 38, carbs: 42, fat: 14 },
+    prepTimeMin: 15,
+    cookTimeMin: 20,
+    steps: [
+      "Cook quinoa according to package directions.",
+      "Season and grill or pan-sear the chicken; slice.",
+      "Assemble bowls with quinoa, chicken, and vegetables; portion into containers.",
+    ],
   },
   {
     id: "rec-3",
@@ -94,6 +108,13 @@ const RECOMMENDED_MEALS = [
     sourceUrl: "https://www.eatingbirdfood.com",
     youtubeQuery: "high protein overnight oats meal prep",
     perServing: { cal: 320, protein: 18, carbs: 45, fat: 8 },
+    prepTimeMin: 10,
+    cookTimeMin: 0,
+    steps: [
+      "Combine oats, milk, and yogurt in a jar.",
+      "Stir in berries and a sweetener of choice.",
+      "Refrigerate overnight; portion into containers.",
+    ],
   },
   {
     id: "rec-4",
@@ -103,6 +124,13 @@ const RECOMMENDED_MEALS = [
     sourceUrl: "https://www.budgetbytes.com",
     youtubeQuery: "sheet pan salmon meal prep",
     perServing: { cal: 420, protein: 34, carbs: 25, fat: 20 },
+    prepTimeMin: 10,
+    cookTimeMin: 20,
+    steps: [
+      "Preheat the oven and arrange salmon and chopped vegetables on a sheet pan.",
+      "Season with oil, salt, and pepper.",
+      "Roast until the salmon flakes easily; portion into containers.",
+    ],
   },
   {
     id: "rec-5",
@@ -112,6 +140,13 @@ const RECOMMENDED_MEALS = [
     sourceUrl: "https://minimalistbaker.com",
     youtubeQuery: "black bean sweet potato meal prep bowl",
     perServing: { cal: 400, protein: 15, carbs: 65, fat: 10 },
+    prepTimeMin: 15,
+    cookTimeMin: 25,
+    steps: [
+      "Roast cubed sweet potato until tender.",
+      "Warm black beans with cumin and lime.",
+      "Combine with a grain of choice; portion into containers.",
+    ],
   },
   {
     id: "rec-6",
@@ -121,6 +156,13 @@ const RECOMMENDED_MEALS = [
     sourceUrl: "https://ifoodreal.com",
     youtubeQuery: "egg white veggie muffins meal prep",
     perServing: { cal: 180, protein: 20, carbs: 8, fat: 7 },
+    prepTimeMin: 10,
+    cookTimeMin: 20,
+    steps: [
+      "Whisk egg whites with chopped vegetables.",
+      "Pour into a greased muffin tin.",
+      "Bake until set; portion into containers.",
+    ],
   },
   {
     id: "rec-7",
@@ -130,6 +172,13 @@ const RECOMMENDED_MEALS = [
     sourceUrl: "https://therecipecritic.com",
     youtubeQuery: "ground turkey burrito bowl meal prep",
     perServing: { cal: 480, protein: 36, carbs: 48, fat: 15 },
+    prepTimeMin: 10,
+    cookTimeMin: 20,
+    steps: [
+      "Brown the ground turkey with taco seasoning.",
+      "Cook rice and warm black beans.",
+      "Assemble bowls with turkey, rice, beans, and toppings; portion into containers.",
+    ],
   },
   {
     id: "rec-8",
@@ -139,6 +188,13 @@ const RECOMMENDED_MEALS = [
     sourceUrl: "https://gimmedelicious.com",
     youtubeQuery: "greek yogurt protein parfait meal prep",
     perServing: { cal: 220, protein: 20, carbs: 24, fat: 5 },
+    prepTimeMin: 10,
+    cookTimeMin: 0,
+    steps: [
+      "Layer Greek yogurt with granola and berries.",
+      "Repeat layers as desired.",
+      "Portion into containers and refrigerate.",
+    ],
   },
   {
     id: "rec-9",
@@ -148,6 +204,13 @@ const RECOMMENDED_MEALS = [
     sourceUrl: "https://damndelicious.net",
     youtubeQuery: "shrimp broccoli stir fry meal prep",
     perServing: { cal: 350, protein: 30, carbs: 28, fat: 12 },
+    prepTimeMin: 10,
+    cookTimeMin: 15,
+    steps: [
+      "Saute shrimp until pink; set aside.",
+      "Stir-fry broccoli and garlic until crisp-tender.",
+      "Combine with sauce and shrimp; portion into containers.",
+    ],
   },
   {
     id: "rec-10",
@@ -157,6 +220,13 @@ const RECOMMENDED_MEALS = [
     sourceUrl: "https://cookieandkate.com",
     youtubeQuery: "almond butter energy bites no bake",
     perServing: { cal: 150, protein: 5, carbs: 16, fat: 8 },
+    prepTimeMin: 15,
+    cookTimeMin: 0,
+    steps: [
+      "Mix almond butter, oats, and honey.",
+      "Roll into balls.",
+      "Refrigerate and portion into containers.",
+    ],
   },
 ];
 

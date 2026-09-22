@@ -12,8 +12,11 @@ const AppState = {
   cardScales: {}, // recipeId -> scale multiplier
   expandedIds: new Set(), // recipeId set, scale panel open
 
-  plannerMealsCount: 4,
-  plannerCalorieTarget: 2000,
+  plannerMealType: "Lunch",
+  plannerPortions: 5,
+  plannerCalPerPortion: 500,
+  plannerMaxPrepMin: 0,
+  plannerMaxCookMin: 0,
   planLast: null,
 
   shareCodeOutput: null,
@@ -101,6 +104,12 @@ document.addEventListener("click", async (e) => {
     case "remove-ingredient-row":
       removeIngredientRow(id);
       break;
+    case "add-step-row":
+      addStepRow();
+      break;
+    case "remove-step-row":
+      removeStepRow(id);
+      break;
     case "toggle-scale":
       toggleScale(id);
       break;
@@ -158,12 +167,17 @@ document.addEventListener("click", async (e) => {
 document.addEventListener("input", (e) => {
   const el = e.target;
   if (el.matches("[data-ing-field]")) handleIngredientFieldInput(el);
+  if (el.matches("[data-step-field]")) handleStepFieldInput(el);
   if (el.matches("[data-scale-live]")) handleScaleLiveInput(el);
+  if (el.matches("[data-planner-field]")) handlePlannerFieldInput(el);
+  if (el.matches('[data-planner-live="portions"]')) handlePlannerPortionsInput(el);
 });
 
 document.addEventListener("change", (e) => {
   const el = e.target;
   if (el.matches("[data-ing-select]")) handleIngredientFieldInput(el);
+  if (el.matches("[data-planner-field]")) handlePlannerFieldInput(el);
+  if (el.matches('[data-planner-live="portions"]')) handlePlannerPortionsInput(el);
   if (el.id === "import-file-input") importAllDataFile(el.files[0]);
   if (el.id === "profile-switcher") {
     AppState.activeProfileId = el.value;
@@ -173,7 +187,7 @@ document.addEventListener("change", (e) => {
 });
 
 window.addEventListener("DOMContentLoaded", () => {
-  AppState.recipes = loadRecipes();
+  AppState.recipes = loadRecipes().map(normalizeRecipe);
   AppState.profiles = loadProfiles();
   AppState.settings = loadSettings();
   AppState.activeProfileId =

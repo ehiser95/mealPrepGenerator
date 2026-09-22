@@ -11,8 +11,35 @@ function blankRecipeDraft() {
     category: "Dinner",
     servings: 4,
     sourceUrl: "",
-    instructions: "",
+    prepTimeMin: 15,
+    cookTimeMin: 20,
+    steps: [{ id: uid(), text: "" }],
     ingredients: [blankIngredient()],
+  };
+}
+
+// Migrates older saved recipes (plain `instructions` string, no time fields)
+// to the current shape so old localStorage/backup/share data doesn't break.
+function normalizeRecipe(r) {
+  const steps = Array.isArray(r.steps)
+    ? r.steps.map((s) => (typeof s === "string" ? { id: uid(), text: s } : { id: s.id || uid(), text: s.text || "" }))
+    : r.instructions
+    ? String(r.instructions)
+        .split(/\n+/)
+        .map((t) => t.trim())
+        .filter(Boolean)
+        .map((text) => ({ id: uid(), text }))
+    : [];
+  return {
+    id: r.id || uid(),
+    name: r.name || "",
+    category: r.category || "Other",
+    servings: Number(r.servings) || 1,
+    sourceUrl: r.sourceUrl || "",
+    prepTimeMin: r.prepTimeMin != null ? Number(r.prepTimeMin) || 0 : 0,
+    cookTimeMin: r.cookTimeMin != null ? Number(r.cookTimeMin) || 0 : 0,
+    steps,
+    ingredients: Array.isArray(r.ingredients) && r.ingredients.length ? r.ingredients : [blankIngredient()],
   };
 }
 
@@ -96,6 +123,22 @@ function parseIngredientsFromText(text) {
   return results;
 }
 
+// Best-effort parser: pulls numbered/bulleted lines out of pasted text as
+// cooking steps, skipping anything that already looks like an ingredient line.
+function parseStepsFromText(text) {
+  const ingredientLikeRe = /^[-*•\d.)\s]*?\d+(?:[.,]\d+)?\s*(g|gram|grams|kg|kilograms?|oz|ounces?|lb|lbs|pounds?)\s+/i;
+  const stepLeadRe = /^(?:\d+[.)]|step\s*\d+[:.)]?|[-*•])\s*(.{8,300})$/i;
+  const lines = String(text || "").split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  const results = [];
+  for (const line of lines) {
+    if (ingredientLikeRe.test(line)) continue;
+    const m = line.match(stepLeadRe);
+    if (m) results.push(m[1].trim());
+    if (results.length >= 20) break;
+  }
+  return results;
+}
+
 // ---------- Recipes tab ----------
 
 function renderRecipesTab() {
@@ -131,7 +174,9 @@ function renderRecipeCard(r) {
       <div class="min-w-0">
         <h3 class="font-semibold text-lg text-slate-800 truncate">${escapeHtml(r.name)}</h3>
         <span class="badge">${escapeHtml(r.category)}</span>
+        <div class="text-xs text-slate-500 mt-1">⏱ ${formatNum(r.prepTimeMin, 0)}m prep · ${formatNum(r.cookTimeMin, 0)}m cook · ${formatNum((Number(r.prepTimeMin) || 0) + (Number(r.cookTimeMin) || 0), 0)}m total</div>
         ${r.sourceUrl ? `<a href="${escapeHtml(r.sourceUrl)}" target="_blank" rel="noopener noreferrer" class="text-xs text-indigo-600 hover:underline block mt-1 truncate">Source link ↗</a>` : ""}
+        <a href="https://www.youtube.com/results?search_query=${encodeURIComponent(r.name + " recipe")}" target="_blank" rel="noopener noreferrer" class="text-xs text-indigo-600 hover:underline block truncate">Search YouTube ↗</a>
       </div>
       <div class="flex gap-1 shrink-0">
         <button data-action="edit-recipe" data-id="${r.id}" title="Edit" class="icon-btn">✏️</button>
@@ -167,9 +212,13 @@ function renderScalePanel(r, scale) {
       ${[1, 2, 3].map((x) => `<button data-action="scale-quick" data-id="${r.id}" data-value="${x}" class="btn-chip">${x}x</button>`).join("")}
     </div>
     <p class="text-sm mt-2">Batch makes <strong>${formatNum(scaledServings, 1)}</strong> servings</p>
-    <ul class="text-sm mt-1 list-disc list-inside text-slate-600 max-h-32 overflow-y-auto">
+    <ol class="text-sm mt-1 list-decimal list-inside text-slate-600 max-h-32 overflow-y-auto">
       ${r.ingredients.map((ing) => `<li>${formatNum(ing.amount * scale, 2)} ${escapeHtml(ing.unit)} ${escapeHtml(ing.name)}</li>`).join("")}
-    </ul>
+    </ol>
+    <h4 class="text-xs font-semibold text-slate-500 uppercase mt-3 mb-1">Steps</h4>
+    <ol class="text-sm list-decimal list-inside text-slate-600 space-y-0.5">
+      ${r.steps && r.steps.length ? r.steps.map((s) => `<li>${escapeHtml(s.text)}</li>`).join("") : `<li class="text-slate-400 list-none -ml-5">No steps added yet.</li>`}
+    </ol>
   </div>`;
 }
 
@@ -219,7 +268,7 @@ function startNewRecipe() {
 function startEditRecipe(id) {
   const recipe = AppState.recipes.find((r) => r.id === id);
   if (!recipe) return;
-  AppState.editorDraft = JSON.parse(JSON.stringify(recipe));
+  AppState.editorDraft = normalizeRecipe(JSON.parse(JSON.stringify(recipe)));
   AppState.recipeEditorId = id;
   renderApp();
 }
@@ -235,6 +284,25 @@ function removeIngredientRow(id) {
   AppState.editorDraft.ingredients = AppState.editorDraft.ingredients.filter((i) => i.id !== id);
   if (AppState.editorDraft.ingredients.length === 0) AppState.editorDraft.ingredients.push(blankIngredient());
   renderApp();
+}
+
+function addStepRow() {
+  readEditorFormIntoDraft();
+  AppState.editorDraft.steps.push({ id: uid(), text: "" });
+  renderApp();
+}
+
+function removeStepRow(id) {
+  readEditorFormIntoDraft();
+  AppState.editorDraft.steps = AppState.editorDraft.steps.filter((s) => s.id !== id);
+  renderApp();
+}
+
+function handleStepFieldInput(el) {
+  const id = el.dataset.id;
+  const step = AppState.editorDraft.steps.find((s) => s.id === id);
+  if (!step) return;
+  step.text = el.value;
 }
 
 function handleIngredientFieldInput(el) {
@@ -305,6 +373,16 @@ function renderIngredientRow(ing) {
   </div>`;
 }
 
+function renderStepRow(step, index) {
+  return `
+  <div class="flex items-center gap-2 py-1.5" data-step-row data-id="${step.id}">
+    <span class="w-6 text-sm text-slate-400 font-medium text-right">${index + 1}.</span>
+    <input type="text" placeholder="e.g. Preheat oven to 400°F" value="${escapeHtml(step.text)}"
+      data-step-field="text" data-id="${step.id}" class="flex-1 border rounded-lg px-3 py-1.5 text-sm">
+    <button data-action="remove-step-row" data-id="${step.id}" class="icon-btn" title="Remove step">🗑️</button>
+  </div>`;
+}
+
 function renderRecipeEditor() {
   const d = AppState.editorDraft;
   const isNew = AppState.recipeEditorId === "new";
@@ -345,6 +423,15 @@ function renderRecipeEditor() {
         class="border rounded-lg px-3 py-2 text-sm">
     </div>
 
+    <div class="grid sm:grid-cols-2 gap-3 mt-2">
+      <label class="field-label">Prep time (minutes)
+        <input type="number" id="recipe-prep-time" min="0" step="5" value="${d.prepTimeMin}" class="field-input">
+      </label>
+      <label class="field-label">Cook time (minutes)
+        <input type="number" id="recipe-cook-time" min="0" step="5" value="${d.cookTimeMin}" class="field-input">
+      </label>
+    </div>
+
     <h3 class="font-semibold text-slate-700 mt-4 mb-1">Ingredients</h3>
     <p class="text-xs text-slate-400 mb-2">
       Type a name — common ingredients (e.g. "bell pepper", "chicken breast, cooked") auto-fill
@@ -362,9 +449,12 @@ function renderRecipeEditor() {
 
     <div id="editor-totals" class="mt-4 text-sm bg-slate-50 rounded-lg px-3 py-2 text-slate-600"></div>
 
-    <h3 class="font-semibold text-slate-700 mt-4 mb-1">Instructions (optional)</h3>
-    <textarea id="recipe-instructions" rows="4" placeholder="Steps…"
-      class="w-full border rounded-lg px-3 py-2 text-sm">${escapeHtml(d.instructions)}</textarea>
+    <h3 class="font-semibold text-slate-700 mt-4 mb-1">Steps (optional)</h3>
+    <p class="text-xs text-slate-400 mb-2">Numbered cooking steps — shown alongside the ingredients, source, and YouTube search when this recipe is used in a meal prep plan.</p>
+    <div id="step-rows">
+      ${d.steps.map(renderStepRow).join("")}
+    </div>
+    <button data-action="add-step-row" class="btn-secondary text-sm mt-2">+ Add Step</button>
   </div>
 
   <div class="flex gap-2">
@@ -380,7 +470,8 @@ function readEditorFormIntoDraft() {
   d.category = document.getElementById("recipe-category")?.value || "Other";
   d.servings = parseFloat(document.getElementById("recipe-servings")?.value) || 1;
   d.sourceUrl = document.getElementById("recipe-source-url")?.value.trim() || "";
-  d.instructions = document.getElementById("recipe-instructions")?.value || "";
+  d.prepTimeMin = parseFloat(document.getElementById("recipe-prep-time")?.value) || 0;
+  d.cookTimeMin = parseFloat(document.getElementById("recipe-cook-time")?.value) || 0;
 }
 
 function saveRecipeFromForm() {
@@ -396,6 +487,7 @@ function saveRecipeFromForm() {
     return;
   }
   d.ingredients = validIngredients;
+  d.steps = d.steps.filter((s) => s.text.trim());
 
   if (AppState.recipeEditorId === "new") {
     d.id = uid();
@@ -426,13 +518,16 @@ async function tryFetchRecipeUrl() {
       .replace(/<script[\s\S]*?<\/script>/gi, "\n")
       .replace(/<style[\s\S]*?<\/style>/gi, "\n")
       .replace(/<[^>]+>/g, "\n");
-    const parsed = parseIngredientsFromText(stripped);
-    if (parsed.length) {
-      AppState.editorDraft.ingredients.push(...parsed);
-      toast(`Fetched the page and found ${parsed.length} possible ingredient line(s) — please review them`, "success");
+    const parsedIngredients = parseIngredientsFromText(stripped);
+    const parsedSteps = parseStepsFromText(stripped);
+    if (parsedIngredients.length || parsedSteps.length) {
+      readEditorFormIntoDraft();
+      AppState.editorDraft.ingredients.push(...parsedIngredients);
+      AppState.editorDraft.steps.push(...parsedSteps.map((text) => ({ id: uid(), text })));
+      toast(`Fetched the page — found ${parsedIngredients.length} possible ingredient line(s) and ${parsedSteps.length} possible step(s). Please review them.`, "success");
       renderApp();
     } else {
-      toast("Fetched the page but couldn't auto-detect ingredients. Paste the recipe text below instead.", "warning");
+      toast("Fetched the page but couldn't auto-detect ingredients or steps. Paste the recipe text below instead.", "warning");
     }
   } catch (err) {
     toast("Couldn't fetch automatically (most sites block this via CORS). Paste the recipe text below instead.", "error");
@@ -441,12 +536,15 @@ async function tryFetchRecipeUrl() {
 
 function parsePastedText() {
   const text = document.getElementById("paste-recipe-text")?.value || "";
-  const parsed = parseIngredientsFromText(text);
-  if (parsed.length === 0) {
-    toast("No ingredient lines with a weight (g/oz/lb) were detected. Add ingredients manually below.", "warning");
+  const parsedIngredients = parseIngredientsFromText(text);
+  const parsedSteps = parseStepsFromText(text);
+  if (parsedIngredients.length === 0 && parsedSteps.length === 0) {
+    toast("No ingredient lines (with a weight) or numbered/bulleted steps were detected. Add them manually below.", "warning");
     return;
   }
-  AppState.editorDraft.ingredients.push(...parsed);
-  toast(`Added ${parsed.length} parsed ingredient(s) — double check amounts and macros`, "success");
+  readEditorFormIntoDraft();
+  AppState.editorDraft.ingredients.push(...parsedIngredients);
+  AppState.editorDraft.steps.push(...parsedSteps.map((text) => ({ id: uid(), text })));
+  toast(`Added ${parsedIngredients.length} ingredient(s) and ${parsedSteps.length} step(s) — double check them`, "success");
   renderApp();
 }

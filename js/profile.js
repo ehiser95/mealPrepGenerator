@@ -100,9 +100,12 @@ function saveProfileFromForm() {
 function useGoalAsTarget() {
   const p = getActiveProfile();
   if (!p) return;
-  AppState.plannerCalorieTarget = Math.round(computeGoalCalories(p));
+  const goalCal = computeGoalCalories(p);
+  // The planner targets a single lunch or dinner, not the whole day, so we
+  // suggest roughly a third of the daily goal as a starting point.
+  AppState.plannerCalPerPortion = Math.round(goalCal / 3);
   AppState.activeTab = "planner";
-  toast(`Set meal plan target to ${AppState.plannerCalorieTarget} cal/day`, "success");
+  toast(`Set meal prep target to ~${AppState.plannerCalPerPortion} cal/portion (about 1/3 of your ${Math.round(goalCal)} cal/day goal) — adjust as needed`, "success");
   renderApp();
 }
 

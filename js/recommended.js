@@ -7,6 +7,7 @@ function renderRecommendedTab() {
         <div>
           <h3 class="font-semibold text-slate-800">${escapeHtml(m.name)}</h3>
           <span class="badge">${escapeHtml(m.mealType)}</span>
+          <div class="text-xs text-slate-500 mt-1">⏱ ${formatNum(m.prepTimeMin, 0)}m prep · ${formatNum(m.cookTimeMin, 0)}m cook</div>
         </div>
         <button data-action="add-recommended" data-id="${m.id}" class="btn-secondary text-xs whitespace-nowrap">+ Add to My Recipes</button>
       </div>
@@ -43,7 +44,12 @@ function addRecommendedToLibrary(id) {
     category: m.mealType,
     servings: 1,
     sourceUrl: m.sourceUrl,
-    instructions: `Estimated macros only — see the original source (${m.sourceLabel}) for the actual method and ingredient list, then edit this recipe's ingredients to match.`,
+    prepTimeMin: m.prepTimeMin || 0,
+    cookTimeMin: m.cookTimeMin || 0,
+    steps: [
+      { id: uid(), text: `Estimated macros only — see the original source (${m.sourceLabel}) for the exact method and ingredient list.` },
+      ...(m.steps || []).map((text) => ({ id: uid(), text })),
+    ],
     ingredients: [
       {
         id: uid(),

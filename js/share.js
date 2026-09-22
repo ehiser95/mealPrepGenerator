@@ -49,13 +49,13 @@ function importShareCodeFromInput() {
     return;
   }
   if (data.type === "mpg-recipe" && data.recipe) {
-    const recipe = { ...data.recipe, id: uid() };
+    const recipe = normalizeRecipe({ ...data.recipe, id: uid() });
     AppState.recipes.push(recipe);
     saveRecipes(AppState.recipes);
     toast(`Imported recipe "${recipe.name}"`, "success");
   } else if (data.type === "mpg-backup") {
     if (!confirm("This will add the recipes and profiles from this backup to your existing data. Continue?")) return;
-    (data.recipes || []).forEach((r) => AppState.recipes.push({ ...r, id: uid() }));
+    (data.recipes || []).forEach((r) => AppState.recipes.push(normalizeRecipe({ ...r, id: uid() })));
     (data.profiles || []).forEach((p) => AppState.profiles.push({ ...p, id: uid() }));
     saveRecipes(AppState.recipes);
     saveProfiles(AppState.profiles);
@@ -82,7 +82,7 @@ function importAllDataFile(file) {
     try {
       const data = JSON.parse(reader.result);
       if (!confirm("This will add the recipes and profiles from this file to your existing data. Continue?")) return;
-      (data.recipes || []).forEach((r) => AppState.recipes.push({ ...r, id: uid() }));
+      (data.recipes || []).forEach((r) => AppState.recipes.push(normalizeRecipe({ ...r, id: uid() })));
       (data.profiles || []).forEach((p) => AppState.profiles.push({ ...p, id: uid() }));
       saveRecipes(AppState.recipes);
       saveProfiles(AppState.profiles);
