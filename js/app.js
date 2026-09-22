@@ -18,6 +18,7 @@ const AppState = {
   plannerMaxPrepMin: 0,
   plannerMaxCookMin: 0,
   plannerDiet: "any",
+  plannerProtein: "any",
   plannerTargetProtein: 0,
   plannerTargetCarbs: 0,
   plannerTargetFat: 0,
@@ -25,6 +26,7 @@ const AppState = {
   planMeta: null,
   openPlanCandidateId: null,
 
+  recommendedSearchQuery: "",
   shareCodeOutput: null,
   shareCodeRecipeName: "",
 };
@@ -208,6 +210,7 @@ document.addEventListener("input", (e) => {
   if (el.matches("[data-scale-live]")) handleScaleLiveInput(el);
   if (el.matches("[data-planner-field]")) handlePlannerFieldInput(el);
   if (el.matches('[data-planner-live="portions"]')) handlePlannerPortionsInput(el);
+  if (el.id === "recommended-search-input") handleRecommendedSearchInput(el);
 });
 
 document.addEventListener("change", (e) => {

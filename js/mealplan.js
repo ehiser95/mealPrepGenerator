@@ -6,7 +6,7 @@
 // full-detail view (ingredients, steps, source/YouTube, tips).
 
 const PLANNER_PORTION_OPTIONS = Array.from({ length: 20 }, (_, i) => i + 1);
-const MAX_PLAN_CANDIDATES = 6;
+const MAX_PLAN_CANDIDATES = 16;
 // A single recipe's macro ratio is fixed by its ingredients — scaling it to
 // hit a calorie target scales protein/carbs/fat together, so an arbitrary
 // macro target can only ever be matched approximately by picking the recipe
@@ -15,18 +15,34 @@ const MAX_PLAN_CANDIDATES = 6;
 const MACRO_TARGET_TOLERANCE = 0.3;
 
 function buildCandidatePool(mealType) {
-  let pool = AppState.recipes
+  const minePool = AppState.recipes
     .filter((r) => r.category === mealType)
     .map((r) => ({ ref: r, type: "mine", totals: computeRecipeTotals(r) }));
-  const usedOwn = pool.length > 0;
-  if (!usedOwn) {
-    pool = RECOMMENDED_MEALS.filter((m) => m.mealType === mealType).map((m) => ({
-      ref: m,
-      type: "recommended",
-      totals: { cal: m.perServing.cal, protein: m.perServing.protein, carbs: m.perServing.carbs, fat: m.perServing.fat },
-    }));
+  // Always blend in the recommended library too, not just as a fallback --
+  // more candidates means more real variety on the tile grid.
+  const recommendedPool = RECOMMENDED_MEALS.filter((m) => m.mealType === mealType).map((m) => ({
+    ref: m,
+    type: "recommended",
+    totals: { cal: m.perServing.cal, protein: m.perServing.protein, carbs: m.perServing.carbs, fat: m.perServing.fat },
+  }));
+  return { pool: [...minePool, ...recommendedPool], usedOwn: minePool.length > 0 };
+}
+
+function getCandidateProteinTypes(candidate) {
+  if (candidate.type === "recommended") {
+    return new Set(candidate.ref.proteinTypes || []);
   }
-  return { pool, usedOwn };
+  const types = new Set();
+  (candidate.ref.ingredients || []).forEach((ing) => {
+    const type = FOOD_PROTEIN_TYPE[String(ing.name || "").trim().toLowerCase()];
+    if (type) types.add(type);
+  });
+  return types;
+}
+
+function passesProteinFilter(proteinKey, candidate) {
+  if (!proteinKey || proteinKey === "any") return true;
+  return getCandidateProteinTypes(candidate).has(proteinKey);
 }
 
 function passesDiet(dietKey, candidate) {
@@ -160,20 +176,26 @@ function shuffleArray(arr) {
 }
 
 function generateMealPrepCandidates(opts) {
-  const { mealType, portions, calPerPortion, maxPrepMin, maxCookMin, diet, targetProteinG, targetCarbsG, targetFatG } = opts;
+  const { mealType, portions, calPerPortion, maxPrepMin, maxCookMin, diet, protein, targetProteinG, targetCarbsG, targetFatG } = opts;
   const targets = { protein: targetProteinG || 0, carbs: targetCarbsG || 0, fat: targetFatG || 0 };
   const hasTargets = targets.protein > 0 || targets.carbs > 0 || targets.fat > 0;
 
   const { pool, usedOwn } = buildCandidatePool(mealType);
   if (pool.length === 0) {
-    return { candidates: [], usedOwn, dietFiltered: false, usedFallbackTime: false, macroFiltered: false, targets, hasTargets };
+    return {
+      candidates: [], usedOwn, dietFiltered: false, usedFallbackTime: false, proteinFiltered: false, macroFiltered: false, targets, hasTargets,
+    };
   }
 
   let dietPool = pool.filter((c) => passesDiet(diet, c));
   const dietFiltered = dietPool.length === 0 && diet !== "any";
   if (dietFiltered) dietPool = pool;
 
-  let timePool = dietPool.filter((c) => {
+  let proteinPool = dietPool.filter((c) => passesProteinFilter(protein, c));
+  const proteinFiltered = proteinPool.length === 0 && protein !== "any";
+  if (proteinFiltered) proteinPool = dietPool;
+
+  let timePool = proteinPool.filter((c) => {
     const prep = Number(c.ref.prepTimeMin) || 0;
     const cook = Number(c.ref.cookTimeMin) || 0;
     if (maxPrepMin > 0 && prep > maxPrepMin) return false;
@@ -181,7 +203,7 @@ function generateMealPrepCandidates(opts) {
     return true;
   });
   const usedFallbackTime = timePool.length === 0 && (maxPrepMin > 0 || maxCookMin > 0);
-  if (usedFallbackTime) timePool = dietPool;
+  if (usedFallbackTime) timePool = proteinPool;
 
   // Scale every remaining candidate to the calorie target BEFORE checking
   // macro targets, since per-portion protein/carbs/fat only exist post-scale.
@@ -206,6 +228,7 @@ function generateMealPrepCandidates(opts) {
     candidates: finalList.slice(0, MAX_PLAN_CANDIDATES),
     usedOwn,
     dietFiltered,
+    proteinFiltered,
     usedFallbackTime,
     macroFiltered,
     targets,
@@ -222,6 +245,7 @@ function onGeneratePlan() {
     maxPrepMin: Number(AppState.plannerMaxPrepMin) || 0,
     maxCookMin: Number(AppState.plannerMaxCookMin) || 0,
     diet: AppState.plannerDiet || "any",
+    protein: AppState.plannerProtein || "any",
     targetProteinG: Number(AppState.plannerTargetProtein) || 0,
     targetCarbsG: Number(AppState.plannerTargetCarbs) || 0,
     targetFatG: Number(AppState.plannerTargetFat) || 0,
@@ -297,6 +321,7 @@ function renderPlannerTab() {
   const maxPrepMin = AppState.plannerMaxPrepMin || 0;
   const maxCookMin = AppState.plannerMaxCookMin || 0;
   const diet = AppState.plannerDiet || "any";
+  const protein = AppState.plannerProtein || "any";
   const totalTime = (Number(maxPrepMin) || 0) + (Number(maxCookMin) || 0);
   const totalBatchCal = calPerPortion * portions;
   const candidates = AppState.planCandidates || [];
@@ -339,6 +364,15 @@ function renderPlannerTab() {
           </select>
         </label>
         <p id="planner-diet-description" class="text-xs text-slate-400 dark:text-slate-500 mt-1">${escapeHtml(DIETS[diet].description)}</p>
+      </div>
+
+      <div class="mt-4">
+        <label class="field-label">Protein (optional)
+          <select id="planner-protein" data-planner-field="protein" class="field-input">
+            ${Object.entries(PROTEIN_TYPES).map(([key, label]) => `<option value="${key}" ${protein === key ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}
+          </select>
+        </label>
+        <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">Recipes are matched by ingredient (your recipes) or a tagged protein (Recommended tab items).</p>
       </div>
 
       <div class="mt-4">
@@ -424,6 +458,11 @@ function renderCandidateTiles() {
   if (meta.dietFiltered) {
     warnings.push(
       `No recipe matched the <strong>${escapeHtml((DIETS[AppState.plannerDiet] || {}).label || "selected")}</strong> diet filter, so it's ignored below — add recipes that fit, or pick "No specific diet".`
+    );
+  }
+  if (meta.proteinFiltered) {
+    warnings.push(
+      `No recipe matched the <strong>${escapeHtml((PROTEIN_TYPES[AppState.plannerProtein] || "selected"))}</strong> protein filter, so it's ignored below — add a recipe with that protein, or pick "Any protein".`
     );
   }
   if (meta.usedFallbackTime) {

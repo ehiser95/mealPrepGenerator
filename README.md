@@ -38,14 +38,22 @@ account system, no data leaves your browser — everything is stored in
   Volumetrics concept), and Carnivore (animal products only, checked
   ingredient-by-ingredient against the food database — so it only works for
   recipes built from known ingredients).
+- **Protein filter** — narrow the Meal Prep Planner to a specific protein
+  (chicken, beef, pork, turkey, fish/seafood, egg, plant-based, or dairy),
+  matched by ingredient for your own recipes or a tagged protein for
+  Recommended tab items.
 - **Profile & calorie targets** — local, on-device profiles compute BMR/TDEE
   (Mifflin-St Jeor) and a goal calorie target from age/sex/height/weight/
   activity level, in either metric or imperial units.
 - **Light/dark theme** — toggle in the header, persisted across sessions,
   and respects your OS preference on first visit.
-- **Recommended meals** — a curated starter list referencing trusted recipe
-  sites (by root domain) and a ready-made YouTube search per idea, since we
-  can't safely guess a specific working video link.
+- **Recommended meals** — a library of 28 curated starter recipes spanning
+  breakfast/lunch/dinner/snack and every protein category, referencing
+  trusted recipe sites (by root domain) and a ready-made YouTube search per
+  idea, since we can't safely guess a specific working video link. Searchable
+  by name, ingredient (e.g. "ground beef", "chicken breast"), protein, or
+  meal type. The Meal Prep Planner draws from this library alongside your
+  own recipes for real variety, even with an empty library.
 - **Import from a link/text** — paste a recipe/YouTube URL and the app will
   try to fetch it directly; most sites block this via CORS, so there's a
   fallback to paste the recipe text (or a YouTube description/transcript)
