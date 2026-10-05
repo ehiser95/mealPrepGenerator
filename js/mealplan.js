@@ -6,7 +6,7 @@
 // full-detail view (ingredients, steps, source/YouTube, tips).
 
 const PLANNER_PORTION_OPTIONS = Array.from({ length: 20 }, (_, i) => i + 1);
-const MAX_PLAN_CANDIDATES = 16;
+const PLAN_PAGE_SIZE = 9;
 // A single recipe's macro ratio is fixed by its ingredients — scaling it to
 // hit a calorie target scales protein/carbs/fat together, so an arbitrary
 // macro target can only ever be matched approximately by picking the recipe
@@ -136,6 +136,7 @@ function buildScaledCandidate(choice, portions, calPerPortion) {
     portions,
     scale,
     sourceUrl: choice.ref.sourceUrl || null,
+    sourceLabel: choice.ref.sourceLabel || "",
     youtubeSearchUrl:
       "https://www.youtube.com/results?search_query=" +
       encodeURIComponent(choice.ref.youtubeQuery || choice.ref.name + " meal prep recipe"),
@@ -227,7 +228,7 @@ function generateMealPrepCandidates(opts) {
   finalList = [...finalList].sort((a, b) => scoreMacroFit(a.perPortion, targets) - scoreMacroFit(b.perPortion, targets));
 
   return {
-    candidates: finalList.slice(0, MAX_PLAN_CANDIDATES),
+    candidates: finalList,
     usedOwn,
     dietFiltered,
     proteinFiltered,
@@ -260,6 +261,7 @@ function onGeneratePlan() {
     return;
   }
   AppState.planCandidates = result.candidates;
+  AppState.planPage = 1;
   AppState.planMeta = result;
   renderApp();
 }
@@ -401,7 +403,7 @@ function renderPlannerTab() {
         Batch target: <strong>${formatNum(totalBatchCal, 0)}</strong> cal total (${formatNum(calPerPortion, 0)} cal × ${portions} portions)
       </div>
 
-      <button data-action="generate-plan" class="btn-primary mt-4">${candidates.length ? "Show More Options" : "Generate Meal Prep Options"}</button>
+      <button data-action="generate-plan" class="btn-primary mt-4">${candidates.length ? "Shuffle Options" : "Generate Meal Prep Options"}</button>
       <p class="text-xs text-slate-400 dark:text-slate-500 mt-2">Tip: set up your Profile tab and click "Use as Meal Plan Target" for a starting calories/portion suggestion.</p>
     </div>
 
@@ -426,7 +428,11 @@ function renderCandidateTiles() {
   const candidates = AppState.planCandidates || [];
   const meta = AppState.planMeta || {};
   const targets = meta.targets || {};
-  const tiles = candidates
+  const pageCount = Math.max(1, Math.ceil(candidates.length / PLAN_PAGE_SIZE));
+  const page = clamp(AppState.planPage || 1, 1, pageCount);
+  const start = (page - 1) * PLAN_PAGE_SIZE;
+  const pageItems = candidates.slice(start, start + PLAN_PAGE_SIZE);
+  const tiles = pageItems
     .map((c) => {
       const targetLines = meta.hasTargets
         ? [
@@ -451,7 +457,7 @@ function renderCandidateTiles() {
         <div class="macro-tile bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300"><div class="font-bold text-sm">${formatNum(c.perPortion.fat, 0)}g</div><div class="text-[9px] uppercase tracking-wide">fat</div></div>
       </div>
       ${targetLines ? `<div class="text-xs mb-1.5">${targetLines}</div>` : ""}
-      <div class="text-xs text-slate-500 dark:text-slate-400">⏱ ${formatNum(c.prepTimeMin + c.cookTimeMin, 0)}m total · tap to view recipe</div>
+      <div class="text-xs text-slate-500 dark:text-slate-400">⏱ ${formatNum(c.prepTimeMin + c.cookTimeMin, 0)}m total${c.sourceLabel ? ` · ${escapeHtml(c.sourceLabel)}` : ""} · tap to view</div>
     </button>`;
     })
     .join("");
@@ -482,13 +488,66 @@ function renderCandidateTiles() {
     : "";
 
   return `
-    <div class="flex items-center justify-between mb-3">
+    <div id="plan-results" class="scroll-mt-24 flex flex-wrap items-baseline justify-between gap-2 mb-3">
       <h3 class="font-semibold text-slate-700 dark:text-slate-300">Pick a recipe (${candidates.length} option${candidates.length === 1 ? "" : "s"})</h3>
+      ${pageCount > 1 ? `<span class="text-xs text-slate-500 dark:text-slate-400 tabular-nums">Showing ${start + 1}–${start + pageItems.length} of ${candidates.length}</span>` : ""}
     </div>
     ${warningBanner}
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-2">${tiles}</div>
+    ${renderPlanPagination(page, pageCount)}
     ${!meta.usedOwn ? `<p class="text-xs text-slate-400 dark:text-slate-500 mt-1">No saved recipes for this meal type yet, so these are starter ideas from the Recommended tab.</p>` : ""}
+    ${renderOtherSitesSearch()}
   `;
+}
+
+function renderPlanPagination(page, pageCount) {
+  if (pageCount <= 1) return "";
+  const btn = (n, label, disabled, current) =>
+    `<button data-action="plan-page" data-page="${n}" ${disabled ? "disabled" : ""} ${current ? 'aria-current="page"' : ""}
+      class="${current ? "nav-btn nav-btn-active" : "nav-btn"} min-w-[2.25rem] tabular-nums disabled:opacity-40 disabled:pointer-events-none">${label}</button>`;
+  const numbers = Array.from({ length: pageCount }, (_, i) => btn(i + 1, i + 1, false, i + 1 === page)).join("");
+  return `
+    <nav aria-label="Recipe pages" class="flex flex-wrap items-center justify-center gap-1 my-4">
+      ${btn(page - 1, "← Prev", page === 1, false)}
+      ${numbers}
+      ${btn(page + 1, "Next →", page === pageCount, false)}
+    </nav>`;
+}
+
+function goToPlanPage(n) {
+  const pageCount = Math.max(1, Math.ceil((AppState.planCandidates || []).length / PLAN_PAGE_SIZE));
+  AppState.planPage = clamp(n, 1, pageCount);
+  renderApp();
+  const el = document.getElementById("plan-results");
+  if (el) {
+    const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+  }
+}
+
+function planSearchQuery() {
+  const parts = [];
+  const diet = AppState.plannerDiet || "any";
+  const protein = AppState.plannerProtein || "any";
+  if (diet !== "any" && DIET_SEARCH_TERMS[diet]) parts.push(DIET_SEARCH_TERMS[diet]);
+  if (protein !== "any" && PROTEIN_SEARCH_TERMS[protein]) parts.push(PROTEIN_SEARCH_TERMS[protein]);
+  parts.push((AppState.plannerMealType || "Lunch").toLowerCase(), "meal prep");
+  return parts.join(" ");
+}
+
+function renderOtherSitesSearch() {
+  const query = planSearchQuery();
+  const sites = Object.keys(RECIPE_SITES).sort((a, b) => RECIPE_SITES[a].label.localeCompare(RECIPE_SITES[b].label));
+  const chips = sites
+    .map((key) => `<a href="${escapeHtml(siteSearchUrl(key, query))}" target="_blank" rel="noopener noreferrer" class="btn-chip">${escapeHtml(RECIPE_SITES[key].label)} ↗</a>`)
+    .join("");
+  const yt = `<a href="https://www.youtube.com/results?search_query=${encodeURIComponent(query)}" target="_blank" rel="noopener noreferrer" class="btn-chip">YouTube ↗</a>`;
+  return `
+    <div class="panel p-4 mt-6">
+      <h3 class="font-semibold text-slate-700 dark:text-slate-300">Find more on other sites</h3>
+      <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3">Searches each site for <strong>“${escapeHtml(query)}”</strong> in a new tab. Found one you like? Paste its ingredient list into a new recipe on the Recipes tab to get its macros here.</p>
+      <div class="flex flex-wrap gap-2">${chips}${yt}</div>
+    </div>`;
 }
 
 function renderPlanModal() {
@@ -520,7 +579,7 @@ function renderPlanModal() {
 
       <div class="p-5">
         <div class="text-right text-xs mb-3">
-          ${plan.sourceUrl ? `<a href="${escapeHtml(plan.sourceUrl)}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 dark:text-indigo-400 hover:underline block">Source ↗</a>` : ""}
+          ${plan.sourceUrl ? `<a href="${escapeHtml(plan.sourceUrl)}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 dark:text-indigo-400 hover:underline block">${plan.type === "recommended" ? `Find on ${escapeHtml(plan.sourceLabel)}` : "Source"} ↗</a>` : ""}
           <a href="${escapeHtml(plan.youtubeSearchUrl)}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 dark:text-indigo-400 hover:underline block">Search YouTube ↗</a>
         </div>
 

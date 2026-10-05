@@ -47,13 +47,17 @@ account system, no data leaves your browser — everything is stored in
   activity level, in either metric or imperial units.
 - **Light/dark theme** — toggle in the header, persisted across sessions,
   and respects your OS preference on first visit.
-- **Recommended meals** — a library of 28 curated starter recipes spanning
-  breakfast/lunch/dinner/snack and every protein category, referencing
-  trusted recipe sites (by root domain) and a ready-made YouTube search per
-  idea, since we can't safely guess a specific working video link. Searchable
-  by name, ingredient (e.g. "ground beef", "chicken breast"), protein, or
-  meal type. The Meal Prep Planner draws from this library alongside your
-  own recipes for real variety, even with an empty library.
+- **Recommended meals** — a library of 60 starter recipes with estimated
+  macros, spanning breakfast/lunch/dinner/snack and every protein category,
+  drawn from 20 trusted recipe sites. Each recipe links to a search for that
+  dish on its site and on YouTube, so you can find the full recipe and check
+  the numbers. Searchable by name, ingredient (e.g. "ground beef"), protein,
+  or meal type. The Meal Prep Planner draws from this library alongside your
+  own recipes, showing results 9 per page.
+- **Find more on other sites** — under the planner results, one-click links
+  run your current filters (e.g. "keto chicken dinner meal prep") as a search
+  on 22 recipe sites plus YouTube. A static page can't read other websites
+  itself, so these open each site's own search in a new tab.
 - **Import from a link/text** — paste a recipe/YouTube URL and the app will
   try to fetch it directly; most sites block this via CORS, so there's a
   fallback to paste the recipe text (or a YouTube description/transcript)

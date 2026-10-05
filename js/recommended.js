@@ -41,7 +41,7 @@ function renderRecommendedCard(m) {
           : ""
       }
       <div class="text-xs text-slate-500 dark:text-slate-400 space-x-2">
-        <a href="${escapeHtml(m.sourceUrl)}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 dark:text-indigo-400 hover:underline">${escapeHtml(m.sourceLabel)} ↗</a>
+        <a href="${escapeHtml(m.sourceUrl)}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 dark:text-indigo-400 hover:underline">Find on ${escapeHtml(m.sourceLabel)} ↗</a>
         <a href="https://www.youtube.com/results?search_query=${encodeURIComponent(m.youtubeQuery)}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 dark:text-indigo-400 hover:underline">Search YouTube ↗</a>
       </div>
     </div>
@@ -74,9 +74,9 @@ function renderRecommendedTab() {
   return `
     <h2 class="page-title mb-1">Recommended Meals</h2>
     <p class="text-sm text-slate-500 dark:text-slate-400 mb-5">
-      Starter ideas from well-known meal-prep sites, plus a ready-made YouTube search for each —
-      macros here are estimates, not scraped data, so double check against the source before you rely on them.
-      Add any of these to your library to use them in the Meal Prep Planner.
+      Starter recipes with estimated macros. Each links to a search for the dish on a trusted recipe site and on YouTube,
+      so you can find the full recipe and check the numbers. They already appear in the Meal Prep Planner; add one to
+      your own recipes to edit its ingredients.
     </p>
 
     <div class="panel p-4 mb-5">

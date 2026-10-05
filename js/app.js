@@ -23,6 +23,7 @@ const AppState = {
   plannerTargetCarbs: 0,
   plannerTargetFat: 0,
   planCandidates: [],
+  planPage: 1,
   planMeta: null,
   openPlanCandidateId: null,
 
@@ -175,6 +176,9 @@ document.addEventListener("click", async (e) => {
       break;
     case "open-plan-modal":
       openPlanModal(id);
+      break;
+    case "plan-page":
+      goToPlanPage(Number(btn.dataset.page));
       break;
     case "close-plan-modal":
       closePlanModal();
