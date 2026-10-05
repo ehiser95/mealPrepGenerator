@@ -447,7 +447,7 @@ function renderRecipeEditor() {
     </div>
     <button data-action="add-ingredient-row" class="btn-secondary text-sm mt-3">+ Add Ingredient</button>
 
-    <div id="editor-totals" class="mt-4 text-sm bg-slate-50 dark:bg-slate-800/60 rounded-lg px-3 py-2 text-slate-600 dark:text-slate-300"></div>
+    <div id="editor-totals" class="mt-4 text-sm bg-slate-50 dark:bg-slate-900/50 rounded-lg px-3 py-2 text-slate-600 dark:text-slate-300"></div>
 
     <h3 class="font-semibold text-slate-700 dark:text-slate-300 mt-4 mb-1">Steps (optional)</h3>
     <p class="text-xs text-slate-400 dark:text-slate-500 mb-2">Numbered cooking steps — shown alongside the ingredients, source, and YouTube search when this recipe is used in a meal prep plan.</p>

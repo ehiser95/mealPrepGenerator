@@ -135,7 +135,7 @@ function renderShareTab() {
     ${AppState.shareCodeOutput ? `
     <div class="panel p-5 mb-5">
       <h3 class="font-semibold text-slate-700 dark:text-slate-300 mb-2">Share code for "${escapeHtml(AppState.shareCodeRecipeName)}"</h3>
-      <textarea id="share-code-output" readonly rows="3" class="w-full border rounded-lg px-3 py-2 text-xs font-mono bg-slate-50 dark:bg-slate-800/60">${escapeHtml(AppState.shareCodeOutput)}</textarea>
+      <textarea id="share-code-output" readonly rows="3" class="w-full border rounded-lg px-3 py-2 text-xs font-mono bg-slate-50 dark:bg-slate-900/50">${escapeHtml(AppState.shareCodeOutput)}</textarea>
       <button data-action="copy-share-code" class="btn-secondary text-sm mt-2">Copy to Clipboard</button>
     </div>` : ""}
 

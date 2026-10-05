@@ -122,10 +122,11 @@ function buildScaledCandidate(choice, portions, calPerPortion) {
     carbs: scaledTotals.carbs / portions,
     fat: scaledTotals.fat / portions,
   };
+  // Recommended entries carry no measured ingredient list, only keywords.
   const ingredients =
     choice.type === "mine"
       ? choice.ref.ingredients.map((ing) => ({ ...ing, amount: (Number(ing.amount) || 0) * scale }))
-      : [{ id: "rec", name: "estimated recipe — see source link for the exact ingredient list", amount: 0, unit: "g" }];
+      : [];
   const steps = (choice.ref.steps || []).map((s) => (typeof s === "string" ? s : s.text)).filter(Boolean);
 
   return {
@@ -141,6 +142,7 @@ function buildScaledCandidate(choice, portions, calPerPortion) {
     prepTimeMin: Number(choice.ref.prepTimeMin) || 0,
     cookTimeMin: Number(choice.ref.cookTimeMin) || 0,
     ingredients,
+    mainIngredients: choice.type === "recommended" ? choice.ref.searchKeywords || [] : [],
     steps,
     perPortion,
     totals: scaledTotals,
@@ -395,7 +397,7 @@ function renderPlannerTab() {
       </div>
       <p id="planner-total-time-text" class="text-xs text-slate-400 dark:text-slate-500 mt-1">Total time filter: ${totalTime > 0 ? formatNum(totalTime, 0) + " min" : "no limit set"}</p>
 
-      <div id="planner-batch-target-text" class="bg-slate-50 dark:bg-slate-800/60 rounded-lg px-3 py-2 text-sm text-slate-600 dark:text-slate-300 mt-4">
+      <div id="planner-batch-target-text" class="bg-slate-50 dark:bg-slate-900/50 rounded-lg px-3 py-2 text-sm text-slate-600 dark:text-slate-300 mt-4">
         Batch target: <strong>${formatNum(totalBatchCal, 0)}</strong> cal total (${formatNum(calPerPortion, 0)} cal × ${portions} portions)
       </div>
 
@@ -506,8 +508,8 @@ function renderPlanModal() {
 
   return `
   <div id="plan-modal-backdrop" data-action="close-plan-modal"
-    class="modal-backdrop fixed inset-0 z-50 bg-slate-900/60 dark:bg-slate-950/75 flex items-start sm:items-center justify-center p-4 overflow-y-auto">
-    <div class="modal-panel bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl my-8" onclick="event.stopPropagation()">
+    class="modal-backdrop fixed inset-0 z-50 bg-slate-900/60 dark:bg-slate-950/75 backdrop-blur-sm flex justify-center p-4 overflow-y-auto">
+    <div class="modal-panel bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl my-auto" onclick="event.stopPropagation()">
       <div class="sticky top-0 bg-white dark:bg-slate-800 rounded-t-2xl border-b border-slate-100 dark:border-slate-700 p-5 flex justify-between items-start gap-3">
         <div>
           <h3 class="text-xl font-bold text-slate-800 dark:text-slate-100">${escapeHtml(plan.recipeName)}</h3>
@@ -523,8 +525,8 @@ function renderPlanModal() {
         </div>
 
         <div class="grid grid-cols-3 gap-2 text-center mb-3">
-          <div class="macro-tile bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300"><div class="font-bold">${formatNum(plan.prepTimeMin, 0)}m</div><div class="text-[10px] uppercase tracking-wide">prep</div></div>
-          <div class="macro-tile bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300"><div class="font-bold">${formatNum(plan.cookTimeMin, 0)}m</div><div class="text-[10px] uppercase tracking-wide">cook</div></div>
+          <div class="macro-tile bg-slate-50 dark:bg-slate-900/50 text-slate-700 dark:text-slate-300"><div class="font-bold">${formatNum(plan.prepTimeMin, 0)}m</div><div class="text-[10px] uppercase tracking-wide">prep</div></div>
+          <div class="macro-tile bg-slate-50 dark:bg-slate-900/50 text-slate-700 dark:text-slate-300"><div class="font-bold">${formatNum(plan.cookTimeMin, 0)}m</div><div class="text-[10px] uppercase tracking-wide">cook</div></div>
           <div class="macro-tile bg-slate-800 dark:bg-slate-700 text-white"><div class="font-bold">${formatNum(totalTime, 0)}m</div><div class="text-[10px] uppercase tracking-wide">total</div></div>
         </div>
 
@@ -542,7 +544,13 @@ function renderPlanModal() {
         ].filter(Boolean).join(" · ")}</p>` : `<div class="mb-4"></div>`}
 
         <h4 class="font-semibold text-slate-700 dark:text-slate-300 mb-1">Ingredients (whole batch, ${plan.portions} portions)</h4>
-        <ol class="list-decimal list-inside text-sm text-slate-600 dark:text-slate-300 space-y-0.5 mb-4">${ingredientItems}</ol>
+        ${
+          plan.ingredients.length
+            ? `<ol class="list-decimal list-inside text-sm text-slate-600 dark:text-slate-300 space-y-0.5 mb-4">${ingredientItems}</ol>`
+            : `<p class="text-sm text-slate-600 dark:text-slate-300 mb-4">${
+                plan.mainIngredients.length ? `Main ingredients: ${escapeHtml(plan.mainIngredients.join(", "))}. ` : ""
+              }<span class="text-slate-400 dark:text-slate-500">Exact amounts aren't stored for starter ideas — see the source recipe.</span></p>`
+        }
 
         <h4 class="font-semibold text-slate-700 dark:text-slate-300 mb-1">Steps</h4>
         <ol class="list-decimal list-inside text-sm text-slate-600 dark:text-slate-300 space-y-1 mb-4">${stepItems}</ol>

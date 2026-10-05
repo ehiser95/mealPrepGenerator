@@ -214,7 +214,7 @@ function renderProfileTab() {
     <div class="panel p-5">
       <h3 class="font-semibold text-slate-700 dark:text-slate-300 mb-3">Estimated Energy Needs</h3>
       <div class="grid grid-cols-3 gap-3 text-center">
-        <div class="macro-tile bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300"><div class="text-xl font-bold">${formatNum(bmr, 0)}</div><div class="text-xs uppercase tracking-wide">BMR</div></div>
+        <div class="macro-tile bg-slate-50 dark:bg-slate-900/50 text-slate-700 dark:text-slate-300"><div class="text-xl font-bold">${formatNum(bmr, 0)}</div><div class="text-xs uppercase tracking-wide">BMR</div></div>
         <div class="macro-tile bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300"><div class="text-xl font-bold">${formatNum(tdee, 0)}</div><div class="text-xs uppercase tracking-wide">Maintenance (TDEE)</div></div>
         <div class="macro-tile bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300"><div class="text-xl font-bold">${formatNum(goalCal, 0)}</div><div class="text-xs uppercase tracking-wide">Goal calories/day</div></div>
       </div>
