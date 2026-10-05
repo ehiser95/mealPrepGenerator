@@ -5,6 +5,7 @@ const AppState = {
   recipes: [],
   profiles: [],
   activeProfileId: null,
+  googleUser: null, // { sub, name, email, picture } when signed in with Google
   settings: {},
 
   recipeEditorId: null, // null | "new" | <id>
@@ -76,7 +77,12 @@ function applyTheme(theme) {
 }
 
 function initTheme() {
-  let theme = localStorage.getItem(THEME_KEY);
+  let theme = null;
+  try {
+    theme = localStorage.getItem(THEME_KEY);
+  } catch (e) {
+    // Storage blocked: fall back to the OS preference.
+  }
   if (!theme) {
     theme = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   }
@@ -85,8 +91,13 @@ function initTheme() {
 
 function toggleTheme() {
   const next = document.documentElement.classList.contains("dark") ? "light" : "dark";
-  localStorage.setItem(THEME_KEY, next);
+  try {
+    localStorage.setItem(THEME_KEY, next);
+  } catch (e) {
+    // Storage blocked: the theme still applies for this visit.
+  }
   applyTheme(next);
+  mountGoogleButton();
 }
 
 function renderApp() {
@@ -94,6 +105,7 @@ function renderApp() {
   const root = document.getElementById("app-root");
   root.innerHTML = TAB_RENDERERS[AppState.activeTab]();
   updateEditorTotalsDisplay();
+  mountGoogleButton();
 }
 
 function switchTab(tab) {
@@ -156,8 +168,8 @@ document.addEventListener("click", async (e) => {
     case "parse-pasted-text":
       parsePastedText();
       break;
-    case "google-signin":
-      showGoogleSigninInfo();
+    case "google-signout":
+      signOutGoogle();
       break;
     case "new-profile":
       startNewProfile();
@@ -243,6 +255,8 @@ window.addEventListener("DOMContentLoaded", () => {
   AppState.settings = loadSettings();
   AppState.activeProfileId =
     AppState.settings.activeProfileId || (AppState.profiles[0] && AppState.profiles[0].id) || null;
+  initGoogleAuth();
+  ensureActiveProfileVisible();
   populateFoodDatalist();
   renderApp();
 });

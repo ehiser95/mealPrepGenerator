@@ -1,6 +1,8 @@
 // Local, on-device profiles + BMR/TDEE calculation.
-// There is no real authentication here — see renderGoogleInfoBox() for why,
-// and treat "private" as meaning "stored only in this browser", not secured.
+// Profiles can be tied to a Google account (see auth.js): signed in, you see
+// only your own; signed out, only profiles not tied to any account. That's
+// separation on a shared browser, not encryption: the data stays in
+// localStorage on this device.
 
 function blankProfile() {
   return {
@@ -48,12 +50,54 @@ function computeGoalCalories(profile) {
   return tdee;
 }
 
+function currentOwnerSub() {
+  return AppState.googleUser ? AppState.googleUser.sub : null;
+}
+
+function visibleProfiles() {
+  const sub = currentOwnerSub();
+  return AppState.profiles.filter((p) => (p.googleSub || null) === sub);
+}
+
 function getActiveProfile() {
-  return AppState.profiles.find((p) => p.id === AppState.activeProfileId) || null;
+  return visibleProfiles().find((p) => p.id === AppState.activeProfileId) || null;
+}
+
+function ensureActiveProfileVisible() {
+  const visible = visibleProfiles();
+  if (!visible.some((p) => p.id === AppState.activeProfileId)) {
+    AppState.activeProfileId = visible[0] ? visible[0].id : null;
+    saveSettings({ ...AppState.settings, activeProfileId: AppState.activeProfileId });
+  }
+}
+
+// On first sign-in, adopt the profile you were already using (if it isn't
+// tied to anyone); otherwise start a profile named after the Google account.
+// Returns the adopted profile's name, or null if nothing was adopted.
+function linkProfileToGoogleUser(user) {
+  let mine = AppState.profiles.filter((p) => p.googleSub === user.sub);
+  let adopted = null;
+  if (mine.length === 0) {
+    const current = AppState.profiles.find((p) => p.id === AppState.activeProfileId && !p.googleSub);
+    if (current) {
+      current.googleSub = user.sub;
+      adopted = current.name;
+      mine = [current];
+    } else {
+      const p = { ...blankProfile(), name: user.name, googleSub: user.sub };
+      AppState.profiles.push(p);
+      mine = [p];
+    }
+    saveProfiles(AppState.profiles);
+  }
+  if (!mine.some((p) => p.id === AppState.activeProfileId)) AppState.activeProfileId = mine[0].id;
+  saveSettings({ ...AppState.settings, activeProfileId: AppState.activeProfileId });
+  return adopted;
 }
 
 function startNewProfile() {
   const p = blankProfile();
+  if (currentOwnerSub()) p.googleSub = currentOwnerSub();
   AppState.profiles.push(p);
   AppState.activeProfileId = p.id;
   saveProfiles(AppState.profiles);
@@ -68,7 +112,7 @@ function confirmDeleteProfile(id) {
   if (!confirm(`Delete profile "${p.name}"?`)) return;
   AppState.profiles = AppState.profiles.filter((x) => x.id !== id);
   if (AppState.activeProfileId === id) {
-    AppState.activeProfileId = AppState.profiles[0]?.id || null;
+    AppState.activeProfileId = visibleProfiles()[0]?.id || null;
   }
   saveProfiles(AppState.profiles);
   saveSettings({ ...AppState.settings, activeProfileId: AppState.activeProfileId });
@@ -109,15 +153,8 @@ function useGoalAsTarget() {
   renderApp();
 }
 
-function showGoogleSigninInfo() {
-  toast(
-    "Google Sign-In needs an OAuth client registered in Google Cloud Console plus a real backend/domain — that can't be spun up inside a static local file. This app uses local on-device profiles instead: your data never leaves this browser.",
-    "info"
-  );
-}
-
 function renderProfileTab() {
-  const profiles = AppState.profiles;
+  const profiles = visibleProfiles();
   const active = getActiveProfile();
 
   const switcher = `
@@ -130,19 +167,7 @@ function renderProfileTab() {
     </div>
   `;
 
-  const googleBox = `
-    <div class="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl p-4 mb-5 text-sm text-amber-800 dark:text-amber-300">
-      <div class="flex items-center justify-between gap-3">
-        <div>
-          <strong>Sign in with Google</strong> — not available in a static local file.
-          <p class="text-xs mt-1 text-amber-700 dark:text-amber-300">Real Google OAuth needs a registered client ID and a hosted domain/backend.
-          Profiles below are private in the sense that they live only in this browser's local storage — nobody else can
-          see them, but they also aren't password-protected.</p>
-        </div>
-        <button data-action="google-signin" class="btn-secondary text-xs whitespace-nowrap bg-white dark:bg-slate-800">Why not?</button>
-      </div>
-    </div>
-  `;
+  const googleBox = renderGoogleBox();
 
   if (!active) {
     return `<h2 class="page-title mb-4">Profile</h2>${switcher}${googleBox}

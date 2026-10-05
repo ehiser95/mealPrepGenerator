@@ -73,11 +73,10 @@ account system, no data leaves your browser — everything is stored in
 
 ### What's intentionally *not* real
 
-- **Google Sign-In**: real OAuth needs a client ID registered in Google
-  Cloud Console plus a hosted domain/backend — that can't be provisioned
-  inside a static local file. Instead, the app uses local on-device
-  profiles (Profile tab); "private" means "stored only in your browser,"
-  not password-protected.
+- **Account sync**: Google Sign-In (below) keeps each person's profiles
+  separate on a shared browser, but there's no server, so nothing syncs
+  between devices and the data isn't encrypted. It's still in this browser's
+  localStorage. Recipes are shared by everyone using the same browser.
 - **Automatic recipe/video scraping**: browsers block cross-origin `fetch()`
   to arbitrary sites (CORS), so most recipe/YouTube pages can't be read
   directly. The app tries anyway, and falls back to a paste-and-parse flow
@@ -114,6 +113,32 @@ browsers can still use the plain backup-file export/import instead).
 
 Press `Ctrl+C` in the terminal to stop the server when you're done.
 
+## Setting up Google Sign-In (optional)
+
+Without this, everything else works; the Profile tab just says sign-in isn't
+set up.
+
+1. In [Google Cloud Console](https://console.cloud.google.com/apis/credentials),
+   open your OAuth 2.0 Client ID (type **Web application**).
+2. Under **Authorized JavaScript origins**, add the exact address you open the
+   app at. For localhost Google wants both forms, e.g. `http://localhost` and
+   `http://localhost:8000` (add `http://localhost:3000` too if you use
+   `npx serve`). Save; changes can take a few minutes to apply.
+3. Copy `js/config.example.js` to `js/config.local.js` and paste in your
+   client ID:
+   ```js
+   window.APP_CONFIG = { googleClientId: "YOUR-ID.apps.googleusercontent.com" };
+   ```
+   `js/config.local.js` is in `.gitignore`, so it never gets committed.
+4. Start a local server (see above) and open the app from that address.
+   Google blocks sign-in on a file opened directly (`file://`).
+
+Only the **client ID** goes in the app. Don't add the client secret: a
+browser-only app has nowhere to keep it hidden, and Google Sign-In in the
+browser doesn't use it. If your OAuth consent screen is in **Testing** mode,
+add your Google account under **Test users** or Google will refuse the
+sign-in.
+
 ## Project structure
 
 ```
@@ -122,7 +147,9 @@ js/data.js           Built-in food database, recommended meals, constants
 js/utils.js          Shared helpers (unit conversion, toasts, formatting)
 js/storage.js        localStorage read/write helpers
 js/recipes.js        Recipe CRUD, macro math, ingredient parsing, editor UI
-js/profile.js        Local profiles, BMR/TDEE calculation
+js/profile.js        Local profiles (per Google account when signed in), BMR/TDEE
+js/auth.js           Google Sign-In (Google Identity Services, client ID only)
+js/config.example.js Template for js/config.local.js (gitignored; holds your client ID)
 js/mealplan.js       Meal Prep Planner: diet/macro/time filters, candidate tiles + detail modal
 js/recommended.js    Curated recommended-meals tab
 js/share.js          Share codes, backup export/import, folder export, reset

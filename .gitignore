@@ -1,0 +1,2 @@
+# Local config holding your Google OAuth client ID. Never commit it.
+js/config.local.js

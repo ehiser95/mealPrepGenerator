@@ -56,7 +56,7 @@ function importShareCodeFromInput() {
   } else if (data.type === "mpg-backup") {
     if (!confirm("This will add the recipes and profiles from this backup to your existing data. Continue?")) return;
     (data.recipes || []).forEach((r) => AppState.recipes.push(normalizeRecipe({ ...r, id: uid() })));
-    (data.profiles || []).forEach((p) => AppState.profiles.push({ ...p, id: uid() }));
+    (data.profiles || []).forEach((p) => AppState.profiles.push({ ...p, id: uid(), googleSub: currentOwnerSub() || undefined }));
     saveRecipes(AppState.recipes);
     saveProfiles(AppState.profiles);
     toast("Backup imported", "success");
@@ -70,7 +70,7 @@ function importShareCodeFromInput() {
 }
 
 function exportAllData() {
-  const payload = { type: "mpg-backup", v: 1, exportedAt: new Date().toISOString(), recipes: AppState.recipes, profiles: AppState.profiles };
+  const payload = { type: "mpg-backup", v: 1, exportedAt: new Date().toISOString(), recipes: AppState.recipes, profiles: visibleProfiles() };
   downloadJson(`meal-prep-generator-backup-${Date.now()}.json`, payload);
   toast("Backup downloaded", "success");
 }
@@ -83,7 +83,7 @@ function importAllDataFile(file) {
       const data = JSON.parse(reader.result);
       if (!confirm("This will add the recipes and profiles from this file to your existing data. Continue?")) return;
       (data.recipes || []).forEach((r) => AppState.recipes.push(normalizeRecipe({ ...r, id: uid() })));
-      (data.profiles || []).forEach((p) => AppState.profiles.push({ ...p, id: uid() }));
+      (data.profiles || []).forEach((p) => AppState.profiles.push({ ...p, id: uid(), googleSub: currentOwnerSub() || undefined }));
       saveRecipes(AppState.recipes);
       saveProfiles(AppState.profiles);
       toast("Backup file imported", "success");
