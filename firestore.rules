@@ -1,0 +1,36 @@
+rules_version = '2';
+
+// Paste this into Firebase console → Firestore Database → Rules, then Publish
+// (or deploy it with `firebase deploy --only firestore:rules`).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Only Google accounts listed in the allowedUsers collection may use the
+    // app. Each invite is a document whose ID is the person's email address in
+    // lowercase, e.g. allowedUsers/jane@gmail.com. Add them in the console.
+    function isInvited() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && exists(/databases/$(database)/documents/allowedUsers/$(request.auth.token.email));
+    }
+
+    function isOwner(uid) {
+      return isInvited() && request.auth.uid == uid;
+    }
+
+    // Each person's settings, recipes, and profiles: readable and writable by
+    // that person only.
+    match /users/{uid} {
+      allow read, write: if isOwner(uid);
+
+      match /{collection}/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    // The invite list is managed in the Firebase console, never by the app.
+    match /allowedUsers/{email} {
+      allow read, write: if false;
+    }
+  }
+}

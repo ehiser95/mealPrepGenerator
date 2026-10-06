@@ -56,7 +56,7 @@ function importShareCodeFromInput() {
   } else if (data.type === "mpg-backup") {
     if (!confirm("This will add the recipes and profiles from this backup to your existing data. Continue?")) return;
     (data.recipes || []).forEach((r) => AppState.recipes.push(normalizeRecipe({ ...r, id: uid() })));
-    (data.profiles || []).forEach((p) => AppState.profiles.push({ ...p, id: uid(), googleSub: currentOwnerSub() || undefined }));
+    (data.profiles || []).forEach((p) => AppState.profiles.push({ ...p, id: uid() }));
     saveRecipes(AppState.recipes);
     saveProfiles(AppState.profiles);
     toast("Backup imported", "success");
@@ -70,7 +70,7 @@ function importShareCodeFromInput() {
 }
 
 function exportAllData() {
-  const payload = { type: "mpg-backup", v: 1, exportedAt: new Date().toISOString(), recipes: AppState.recipes, profiles: visibleProfiles() };
+  const payload = { type: "mpg-backup", v: 1, exportedAt: new Date().toISOString(), recipes: AppState.recipes, profiles: AppState.profiles };
   downloadJson(`meal-prep-generator-backup-${Date.now()}.json`, payload);
   toast("Backup downloaded", "success");
 }
@@ -83,7 +83,7 @@ function importAllDataFile(file) {
       const data = JSON.parse(reader.result);
       if (!confirm("This will add the recipes and profiles from this file to your existing data. Continue?")) return;
       (data.recipes || []).forEach((r) => AppState.recipes.push(normalizeRecipe({ ...r, id: uid() })));
-      (data.profiles || []).forEach((p) => AppState.profiles.push({ ...p, id: uid(), googleSub: currentOwnerSub() || undefined }));
+      (data.profiles || []).forEach((p) => AppState.profiles.push({ ...p, id: uid() }));
       saveRecipes(AppState.recipes);
       saveProfiles(AppState.profiles);
       toast("Backup file imported", "success");
@@ -120,9 +120,21 @@ async function exportRecipesToFolder() {
   }
 }
 
-function handleResetAll() {
+async function handleResetAll() {
+  if (isCloudMode()) {
+    if (!confirm(`This permanently deletes every recipe, profile, and setting in your account (${Cloud.user.email || Cloud.user.name}), on every device. The copy saved in this browser isn't touched. This can't be undone. Continue?`)) return;
+    try {
+      await cloudDeleteAll();
+      applyDataset([], [], { activeProfileId: null });
+      toast("Everything in your account was deleted", "success");
+      renderApp();
+    } catch (e) {
+      toast("Couldn't delete your account data: " + (e.message || e.code), "error");
+    }
+    return;
+  }
   if (!confirm("This permanently deletes every recipe, profile, and setting stored in this browser. This can't be undone. Continue?")) return;
-  resetAllData();
+  resetLocalData();
   toast("All data cleared", "success");
   setTimeout(() => location.reload(), 700);
 }
@@ -160,7 +172,7 @@ function renderShareTab() {
 
     <div class="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-xl p-5">
       <h3 class="font-semibold text-rose-700 dark:text-rose-300 mb-2">Danger zone</h3>
-      <p class="text-xs text-rose-500 dark:text-rose-400 mb-3">Deletes all recipes, profiles, and settings from this browser.</p>
+      <p class="text-xs text-rose-500 dark:text-rose-400 mb-3">${isCloudMode() ? "Deletes all recipes, profiles, and settings in your account, on every device." : "Deletes all recipes, profiles, and settings saved in this browser."}</p>
       <button data-action="reset-all" class="bg-rose-600 hover:bg-rose-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">Reset All Data</button>
     </div>
   `;

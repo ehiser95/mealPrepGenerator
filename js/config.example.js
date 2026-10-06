@@ -1,9 +1,17 @@
-// Copy this file to js/config.local.js and fill in your OAuth client ID.
-// js/config.local.js is gitignored, so the ID stays out of GitHub.
+// Copy this file to js/config.local.js and paste in your Firebase web app
+// settings (Firebase console → Project settings → Your apps → SDK setup and
+// configuration → Config). js/config.local.js is gitignored, so these values
+// stay out of GitHub.
 //
-// Only the client ID belongs here. Never put the client secret in this app:
-// everything the browser loads can be read by anyone using the page, and
-// Google Sign-In in the browser doesn't use the secret.
+// These values aren't passwords: Firebase uses them to find your project,
+// and every visitor's browser needs them. What protects your data is
+// firestore.rules (invited accounts only, each sees only their own data).
+// Never put an OAuth client secret or a service-account key in this app.
 window.APP_CONFIG = {
-  googleClientId: "",
+  firebase: {
+    apiKey: "",
+    authDomain: "",
+    projectId: "",
+    appId: "",
+  },
 };

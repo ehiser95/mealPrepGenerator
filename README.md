@@ -73,10 +73,9 @@ account system, no data leaves your browser — everything is stored in
 
 ### What's intentionally *not* real
 
-- **Account sync**: Google Sign-In (below) keeps each person's profiles
-  separate on a shared browser, but there's no server, so nothing syncs
-  between devices and the data isn't encrypted. It's still in this browser's
-  localStorage. Recipes are shared by everyone using the same browser.
+- **Account sync without Firebase**: until you set up Firebase (below),
+  everything is saved in this browser only, with nothing shared between
+  browsers or devices.
 - **Automatic recipe/video scraping**: browsers block cross-origin `fetch()`
   to arbitrary sites (CORS), so most recipe/YouTube pages can't be read
   directly. The app tries anyway, and falls back to a paste-and-parse flow
@@ -113,31 +112,67 @@ browsers can still use the plain backup-file export/import instead).
 
 Press `Ctrl+C` in the terminal to stop the server when you're done.
 
-## Setting up Google Sign-In (optional)
+## Setting up Firebase (optional: accounts and sync)
 
-Without this, everything else works; the Profile tab just says sign-in isn't
-set up.
+Without this, the app works fully and saves everything in your browser.
+With it, people sign in with Google and their recipes and profiles save to
+their own private area in Cloud Firestore, so they follow them to any device.
+Firebase's free Spark plan is plenty for a handful of users.
 
-1. In [Google Cloud Console](https://console.cloud.google.com/apis/credentials),
-   open your OAuth 2.0 Client ID (type **Web application**).
-2. Under **Authorized JavaScript origins**, add the exact address you open the
-   app at. For localhost Google wants both forms, e.g. `http://localhost` and
-   `http://localhost:8000` (add `http://localhost:3000` too if you use
-   `npx serve`). Save; changes can take a few minutes to apply.
-3. Copy `js/config.example.js` to `js/config.local.js` and paste in your
-   client ID:
-   ```js
-   window.APP_CONFIG = { googleClientId: "YOUR-ID.apps.googleusercontent.com" };
-   ```
-   `js/config.local.js` is in `.gitignore`, so it never gets committed.
-4. Start a local server (see above) and open the app from that address.
-   Google blocks sign-in on a file opened directly (`file://`).
+1. **Create the project.** In the [Firebase console](https://console.firebase.google.com/),
+   click **Add project** (you can pick an existing Google Cloud project).
+2. **Turn on Google sign-in.** Build → **Authentication** → Get started →
+   Sign-in method → **Google** → Enable → Save. `localhost` is already an
+   authorized domain, so local testing works without extra setup.
+3. **Create the database.** Build → **Firestore Database** → Create database →
+   start in **production mode** and pick a location near you.
+4. **Add the security rules.** Firestore → **Rules** tab → replace everything
+   with the contents of [`firestore.rules`](firestore.rules) → **Publish**.
+   These allow only invited people, and each person can only read and write
+   their own data.
+5. **Invite people.** Firestore → **Data** → Start collection `allowedUsers`.
+   Add one document per person, with the **Document ID** set to their Google
+   email address in lowercase (any field works, e.g. `name`). Add yourself
+   first. Anyone not on this list gets a clear "not on the invite list"
+   message and nothing is saved.
+6. **Connect the app.** Project settings → Your apps → **Web** (`</>`) →
+   register an app → copy the `firebaseConfig` values. Copy
+   `js/config.example.js` to `js/config.local.js` and paste them in.
+   `js/config.local.js` is gitignored, so it never reaches GitHub.
+7. **Run it from a local server** (see above) and open the app from that
+   address. Google blocks sign-in on files opened directly (`file://`).
+   Click **Sign in** in the header.
 
-Only the **client ID** goes in the app. Don't add the client secret: a
-browser-only app has nowhere to keep it hidden, and Google Sign-In in the
-browser doesn't use it. If your OAuth consent screen is in **Testing** mode,
-add your Google account under **Test users** or Google will refuse the
-sign-in.
+The first time someone signs in, the app offers to copy what's already saved
+in that browser into their account. Signing out switches back to the browser
+copy, which is never changed while you're signed in.
+
+If Google says the app is "in testing" or blocks access, open Google Cloud
+Console → APIs & Services → **OAuth consent screen** and either add each
+person under **Test users** or publish the app (basic sign-in needs no
+review).
+
+**About the config values.** Firebase's web config (API key, project ID, and
+so on) isn't secret: every visitor's browser needs it to reach your project,
+and Firebase's docs say it's safe to expose. Your data is protected by the
+security rules and the invite list. Never put an OAuth client secret or a
+service-account key in this app.
+
+### Hosting it so your users can reach it (free)
+
+Running it on `localhost` only works on your own PC. To give your users a web
+address, use Firebase Hosting (included in the free plan):
+
+```bash
+npm install -g firebase-tools
+firebase login
+firebase use --add        # pick your project; creates .firebaserc (gitignored)
+firebase deploy           # uploads the site and firestore.rules
+```
+
+Your app is then at `https://<your-project-id>.web.app`, which is already an
+authorized sign-in domain. Deploy from the folder that has your
+`js/config.local.js`, since the hosted site needs it.
 
 ## Project structure
 
@@ -145,11 +180,13 @@ sign-in.
 index.html          Page shell, nav, Tailwind (via CDN) + small custom styles
 js/data.js           Built-in food database, recommended meals, constants
 js/utils.js          Shared helpers (unit conversion, toasts, formatting)
-js/storage.js        localStorage read/write helpers
+js/storage.js        Saves to the browser, or to Firestore when signed in
 js/recipes.js        Recipe CRUD, macro math, ingredient parsing, editor UI
-js/profile.js        Local profiles (per Google account when signed in), BMR/TDEE
-js/auth.js           Google Sign-In (Google Identity Services, client ID only)
-js/config.example.js Template for js/config.local.js (gitignored; holds your client ID)
+js/profile.js        Profiles, BMR/TDEE calculation
+js/cloud.js          Firebase: Google sign-in, per-user Firestore storage, account UI
+js/config.example.js Template for js/config.local.js (gitignored; holds your Firebase config)
+firestore.rules      Firestore security rules (invite list + own-data-only)
+firebase.json        Firebase Hosting / rules deploy config
 js/mealplan.js       Meal Prep Planner: diet/macro/time filters, candidate tiles + detail modal
 js/recommended.js    Curated recommended-meals tab
 js/share.js          Share codes, backup export/import, folder export, reset

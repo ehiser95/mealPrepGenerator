@@ -1,53 +1,66 @@
-// Everything the app persists lives in localStorage under these keys.
-// All data stays on this device/browser only — nothing is ever sent anywhere.
+// Where the app's data lives:
+//  - Signed out (or Firebase not set up): this browser's localStorage.
+//  - Signed in with Firebase: Firestore, under your account (see cloud.js).
+// The load* functions always read the browser copy; the save* functions
+// write to whichever copy is active, so the rest of the app doesn't care.
 const STORAGE_KEYS = {
   RECIPES: "mpg_recipes_v1",
   PROFILES: "mpg_profiles_v1",
   SETTINGS: "mpg_settings_v1",
 };
 
-function loadRecipes() {
+function readLocal(key, fallback) {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.RECIPES);
-    return raw ? JSON.parse(raw) : [];
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
   } catch (e) {
-    console.error("Failed to load recipes", e);
-    return [];
+    console.error("Couldn't read " + key + " from this browser", e);
+    return fallback;
   }
 }
 
-function saveRecipes(recipes) {
-  localStorage.setItem(STORAGE_KEYS.RECIPES, JSON.stringify(recipes));
+function writeLocal(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {
+    toast("Couldn't save in this browser (storage may be full or blocked). Download a backup from Share & Backup.", "error");
+  }
+}
+
+function loadRecipes() {
+  return readLocal(STORAGE_KEYS.RECIPES, []);
 }
 
 function loadProfiles() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.PROFILES);
-    return raw ? JSON.parse(raw) : [];
-  } catch (e) {
-    console.error("Failed to load profiles", e);
-    return [];
-  }
-}
-
-function saveProfiles(profiles) {
-  localStorage.setItem(STORAGE_KEYS.PROFILES, JSON.stringify(profiles));
+  return readLocal(STORAGE_KEYS.PROFILES, []);
 }
 
 function loadSettings() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-    return raw ? JSON.parse(raw) : { activeProfileId: null };
-  } catch (e) {
-    console.error("Failed to load settings", e);
-    return { activeProfileId: null };
-  }
+  return readLocal(STORAGE_KEYS.SETTINGS, { activeProfileId: null });
+}
+
+function saveRecipes(recipes) {
+  if (isCloudMode()) return cloudSaveCollection("recipes", recipes);
+  writeLocal(STORAGE_KEYS.RECIPES, recipes);
+}
+
+function saveProfiles(profiles) {
+  if (isCloudMode()) return cloudSaveCollection("profiles", profiles);
+  writeLocal(STORAGE_KEYS.PROFILES, profiles);
 }
 
 function saveSettings(settings) {
-  localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+  AppState.settings = settings;
+  if (isCloudMode()) return cloudSaveSettings(settings);
+  writeLocal(STORAGE_KEYS.SETTINGS, settings);
 }
 
-function resetAllData() {
-  Object.values(STORAGE_KEYS).forEach((k) => localStorage.removeItem(k));
+function resetLocalData() {
+  Object.values(STORAGE_KEYS).forEach((k) => {
+    try {
+      localStorage.removeItem(k);
+    } catch (e) {
+      // Storage blocked: nothing to clear.
+    }
+  });
 }

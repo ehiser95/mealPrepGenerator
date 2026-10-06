@@ -5,7 +5,6 @@ const AppState = {
   recipes: [],
   profiles: [],
   activeProfileId: null,
-  googleUser: null, // { sub, name, email, picture } when signed in with Google
   settings: {},
 
   recipeEditorId: null, // null | "new" | <id>
@@ -97,7 +96,6 @@ function toggleTheme() {
     // Storage blocked: the theme still applies for this visit.
   }
   applyTheme(next);
-  mountGoogleButton();
 }
 
 function renderApp() {
@@ -105,7 +103,7 @@ function renderApp() {
   const root = document.getElementById("app-root");
   root.innerHTML = TAB_RENDERERS[AppState.activeTab]();
   updateEditorTotalsDisplay();
-  mountGoogleButton();
+  renderAccountSlot();
 }
 
 function switchTab(tab) {
@@ -168,8 +166,11 @@ document.addEventListener("click", async (e) => {
     case "parse-pasted-text":
       parsePastedText();
       break;
-    case "google-signout":
-      signOutGoogle();
+    case "cloud-signin":
+      cloudSignIn();
+      break;
+    case "cloud-signout":
+      cloudSignOut();
       break;
     case "new-profile":
       startNewProfile();
@@ -255,8 +256,10 @@ window.addEventListener("DOMContentLoaded", () => {
   AppState.settings = loadSettings();
   AppState.activeProfileId =
     AppState.settings.activeProfileId || (AppState.profiles[0] && AppState.profiles[0].id) || null;
-  initGoogleAuth();
-  ensureActiveProfileVisible();
+  if (!AppState.profiles.some((p) => p.id === AppState.activeProfileId)) {
+    AppState.activeProfileId = AppState.profiles[0] ? AppState.profiles[0].id : null;
+  }
   populateFoodDatalist();
   renderApp();
+  initCloud(); // async: swaps in your account's data once Firebase reports you're signed in
 });

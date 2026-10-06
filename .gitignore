@@ -1,2 +1,7 @@
-# Local config holding your Google OAuth client ID. Never commit it.
+# Local config holding your Firebase settings. Never commit it.
 js/config.local.js
+
+# Created by the Firebase CLI on your machine; names your project.
+.firebaserc
+.firebase/
+firebase-debug.log

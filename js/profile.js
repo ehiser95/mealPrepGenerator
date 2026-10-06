@@ -1,8 +1,6 @@
-// Local, on-device profiles + BMR/TDEE calculation.
-// Profiles can be tied to a Google account (see auth.js): signed in, you see
-// only your own; signed out, only profiles not tied to any account. That's
-// separation on a shared browser, not encryption: the data stays in
-// localStorage on this device.
+// Profiles + BMR/TDEE calculation. Profiles are saved wherever the app's
+// data lives: this browser when signed out, your account when signed in
+// (see storage.js / cloud.js).
 
 function blankProfile() {
   return {
@@ -50,54 +48,12 @@ function computeGoalCalories(profile) {
   return tdee;
 }
 
-function currentOwnerSub() {
-  return AppState.googleUser ? AppState.googleUser.sub : null;
-}
-
-function visibleProfiles() {
-  const sub = currentOwnerSub();
-  return AppState.profiles.filter((p) => (p.googleSub || null) === sub);
-}
-
 function getActiveProfile() {
-  return visibleProfiles().find((p) => p.id === AppState.activeProfileId) || null;
-}
-
-function ensureActiveProfileVisible() {
-  const visible = visibleProfiles();
-  if (!visible.some((p) => p.id === AppState.activeProfileId)) {
-    AppState.activeProfileId = visible[0] ? visible[0].id : null;
-    saveSettings({ ...AppState.settings, activeProfileId: AppState.activeProfileId });
-  }
-}
-
-// On first sign-in, adopt the profile you were already using (if it isn't
-// tied to anyone); otherwise start a profile named after the Google account.
-// Returns the adopted profile's name, or null if nothing was adopted.
-function linkProfileToGoogleUser(user) {
-  let mine = AppState.profiles.filter((p) => p.googleSub === user.sub);
-  let adopted = null;
-  if (mine.length === 0) {
-    const current = AppState.profiles.find((p) => p.id === AppState.activeProfileId && !p.googleSub);
-    if (current) {
-      current.googleSub = user.sub;
-      adopted = current.name;
-      mine = [current];
-    } else {
-      const p = { ...blankProfile(), name: user.name, googleSub: user.sub };
-      AppState.profiles.push(p);
-      mine = [p];
-    }
-    saveProfiles(AppState.profiles);
-  }
-  if (!mine.some((p) => p.id === AppState.activeProfileId)) AppState.activeProfileId = mine[0].id;
-  saveSettings({ ...AppState.settings, activeProfileId: AppState.activeProfileId });
-  return adopted;
+  return AppState.profiles.find((p) => p.id === AppState.activeProfileId) || null;
 }
 
 function startNewProfile() {
   const p = blankProfile();
-  if (currentOwnerSub()) p.googleSub = currentOwnerSub();
   AppState.profiles.push(p);
   AppState.activeProfileId = p.id;
   saveProfiles(AppState.profiles);
@@ -112,7 +68,7 @@ function confirmDeleteProfile(id) {
   if (!confirm(`Delete profile "${p.name}"?`)) return;
   AppState.profiles = AppState.profiles.filter((x) => x.id !== id);
   if (AppState.activeProfileId === id) {
-    AppState.activeProfileId = visibleProfiles()[0]?.id || null;
+    AppState.activeProfileId = AppState.profiles[0]?.id || null;
   }
   saveProfiles(AppState.profiles);
   saveSettings({ ...AppState.settings, activeProfileId: AppState.activeProfileId });
@@ -154,7 +110,7 @@ function useGoalAsTarget() {
 }
 
 function renderProfileTab() {
-  const profiles = visibleProfiles();
+  const profiles = AppState.profiles;
   const active = getActiveProfile();
 
   const switcher = `
@@ -167,10 +123,10 @@ function renderProfileTab() {
     </div>
   `;
 
-  const googleBox = renderGoogleBox();
+  const accountBox = renderAccountBox();
 
   if (!active) {
-    return `<h2 class="page-title mb-4">Profile</h2>${switcher}${googleBox}
+    return `<h2 class="page-title mb-4">Profile</h2>${switcher}${accountBox}
       <div class="empty-state"><p class="text-lg font-medium text-slate-600 dark:text-slate-300">No profile yet</p>
       <p class="text-sm text-slate-400 dark:text-slate-500 mt-1">Create one to get personalized calorie targets.</p></div>`;
   }
@@ -184,7 +140,7 @@ function renderProfileTab() {
   return `
     <h2 class="page-title mb-4">Profile</h2>
     ${switcher}
-    ${googleBox}
+    ${accountBox}
     <div class="panel p-5 mb-5">
       <div class="grid sm:grid-cols-2 gap-3">
         <label class="field-label">Name
